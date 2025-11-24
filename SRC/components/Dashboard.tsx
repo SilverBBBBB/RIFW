@@ -4,7 +4,7 @@ import {
   Routine, RoutineFilters, ReportViewRow, CDMMappingViewRow, 
   AttributeViewRow, OutputSheet, SheetDetail, UserInputViewRow
 } from '../types.ts';
-import { dataService } from '../services/dataService';
+import { dataService } from '../services/dataService.ts';
 import { 
   Filter, Plus, Edit3, Eye, FileText, Database, Layers, 
   Table as TableIcon, X, ArrowUp, ArrowDown, ArrowDownUp, Search, GripVertical, Monitor,
