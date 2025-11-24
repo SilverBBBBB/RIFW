@@ -1,0 +1,5 @@
+{
+  "name": "Routine Info Workflow",
+  "description": "A centralized platform for business owners to manage AMAP routines, mappings, and versioning.",
+  "requestFramePermissions": []
+}
