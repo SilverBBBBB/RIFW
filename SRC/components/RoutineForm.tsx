@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, AppConfiguration, UserInput
-} from '../types';
+} from '../types.ts';
 import { dataService } from '../services/dataService';
-import { PREDEFINED_REPORTS, HELPER_ROUTINES_LIST, INPUT_LOCATIONS, TEXTBOX_TYPES } from '../constants';
+import { PREDEFINED_REPORTS, HELPER_ROUTINES_LIST, INPUT_LOCATIONS, TEXTBOX_TYPES } from '../constants.ts';
 import { ChevronDown, ChevronUp, Trash2, Plus, Save, ArrowLeft, Copy, Layout, FileSpreadsheet, Database, Workflow, X, Settings, AlertTriangle, ListChecks, MousePointerClick } from 'lucide-react';
 
 interface RoutineFormProps {

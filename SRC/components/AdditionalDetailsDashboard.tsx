@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { SheetDetail, Routine } from '../types';
+import { SheetDetail, Routine } from '../types.ts';
 import { dataService } from '../services/dataService';
 import { ArrowLeft, Filter, Table, Search, X, ArrowDown, ArrowUp, Plus, Save, FileText, Settings } from 'lucide-react';
 

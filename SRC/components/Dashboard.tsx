@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Routine, RoutineFilters, ReportViewRow, CDMMappingViewRow, 
   AttributeViewRow, OutputSheet, SheetDetail, UserInputViewRow
-} from '../types';
+} from '../types.ts';
 import { dataService } from '../services/dataService';
 import { 
   Filter, Plus, Edit3, Eye, FileText, Database, Layers, 

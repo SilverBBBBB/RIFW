@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { dataService } from '../services/dataService';
-import { Routine } from '../types';
+import { Routine } from '../types.ts';
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 
 interface RoutineDetailsProps {

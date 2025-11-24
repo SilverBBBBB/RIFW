@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../services/dataService';
-import { AppConfiguration, ConfigCategory } from '../types';
+import { AppConfiguration, ConfigCategory } from '../types.ts';
 import { ArrowLeft, Plus, Settings, AlertCircle, X, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface AdminPanelProps {
