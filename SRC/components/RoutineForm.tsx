@@ -6,6 +6,7 @@ import {
 import { dataService } from '../services/dataService.ts';
 import { PREDEFINED_REPORTS, HELPER_ROUTINES_LIST, INPUT_LOCATIONS, TEXTBOX_TYPES } from '../constants.ts';
 import { ChevronDown, ChevronUp, Trash2, Plus, Save, ArrowLeft, Copy, Layout, FileSpreadsheet, Database, Workflow, X, Settings, AlertTriangle, ListChecks, MousePointerClick } from 'lucide-react';
+import ExpandCollapseAllButton from './ExpandCollapseAllButton.tsx';
 
 interface RoutineFormProps {
   mode: 'create' | 'edit';
@@ -13,6 +14,8 @@ interface RoutineFormProps {
   onCancel: () => void;
   onSave: () => void;
 }
+
+const ALL_SECTIONS = ['core', 'reports', 'mapping', 'attributes', 'sheets', 'rdes', 'helpers', 'userInputs'];
 
 const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, onSave }) => {
   const [config, setConfig] = useState<AppConfiguration | null>(null);
@@ -45,7 +48,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   const [availableReports, setAvailableReports] = useState<string[]>([]);
   const [customReportInput, setCustomReportInput] = useState('');
 
-  const [expandedSection, setExpandedSection] = useState<string | null>('core');
+  const [expandedSections, setExpandedSections] = useState<string[]>(['core']);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [newVersionName, setNewVersionName] = useState('');
 
@@ -141,6 +144,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
        errors.push("Routine Name");
        errorFields.push("routine_name");
     }
+    if (!routine.routine_display_name?.trim()) {
+       errors.push("Routine Display Name");
+       errorFields.push("routine_display_name");
+    }
     if (!routine.routine_group?.trim()) {
        errors.push("Routine Group");
        errorFields.push("routine_group");
@@ -166,14 +173,26 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
        errorFields.push("region");
     }
 
+    // Associated Report validation
+    if (reports.some(r => !r.report_name?.trim())) {
+      errors.push("Each Associated Report must have a report name selected.");
+      errorFields.push("reports");
+    }
+
     if (errors.length > 0) {
       setValidationErrors(errors);
       setHighlightErrorFields(errorFields);
       setValidationModalOpen(true);
-      // Ensure Core Info section is open
-      if (expandedSection !== 'core') {
-         setExpandedSection('core');
+      
+      const sectionsToExpand = new Set<string>(expandedSections);
+      if (errorFields.some(f => ['routine_name', 'routine_display_name', 'routine_group', 'routine_type', 'to_show', 'display_in_dropdown', 'fund_types', 'region'].includes(f))) {
+        sectionsToExpand.add('core');
       }
+      if (errorFields.includes('reports')) {
+        sectionsToExpand.add('reports');
+      }
+      setExpandedSections(Array.from(sectionsToExpand));
+
       return;
     }
     
@@ -217,7 +236,19 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   };
 
   const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? null : section);
+    setExpandedSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
+
+  const toggleAllSections = (expand: boolean) => {
+    if (expand) {
+      setExpandedSections(ALL_SECTIONS);
+    } else {
+      setExpandedSections([]);
+    }
   };
 
   // --- Report Management ---
@@ -417,7 +448,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   return (
     <div className="max-w-5xl mx-auto animate-slide-up pb-20">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <button onClick={onCancel} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
             <ArrowLeft size={24} className="text-slate-600" />
@@ -458,6 +489,11 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
         </div>
       </div>
 
+      {/* Expand/Collapse All */}
+      <div className="flex justify-end mb-4">
+        <ExpandCollapseAllButton onToggle={toggleAllSections} />
+      </div>
+
       {/* Section 1: Core Info */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
         <button 
@@ -465,10 +501,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><Database size={18} /> 1. Core Routine Information</span>
-          {expandedSection === 'core' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('core') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'core' && (
+        {expandedSections.includes('core') && (
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Routine Name <span className="text-red-500">*</span></label>
@@ -480,10 +516,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Routine Display Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Routine Display Name <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
-                className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${highlightErrorFields.includes('routine_display_name') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
                 value={routine.routine_display_name}
                 onChange={e => setRoutine({ ...routine, routine_display_name: e.target.value })}
               />
@@ -593,10 +629,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><FileSpreadsheet size={18} /> 2. Associated Reports</span>
-          {expandedSection === 'reports' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('reports') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'reports' && (
+        {expandedSections.includes('reports') && (
           <div className="p-6">
             <table className="w-full text-left border-collapse mb-4">
               <thead>
@@ -680,10 +716,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><Layout size={18} /> 3. CDM Field Mapping</span>
-          {expandedSection === 'mapping' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('mapping') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'mapping' && (
+        {expandedSections.includes('mapping') && (
           <div className="p-6">
             {reports.length === 0 ? (
               <p className="text-slate-400 text-sm italic">Add reports first to configure mapping.</p>
@@ -770,10 +806,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><Layout size={18} /> 4. Attribute Mapping</span>
-          {expandedSection === 'attributes' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('attributes') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'attributes' && (
+        {expandedSections.includes('attributes') && (
           <div className="p-6">
             {mappings.length === 0 ? (
               <p className="text-slate-400 text-sm italic">Define CDM mappings first to map attributes.</p>
@@ -865,10 +901,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><FileSpreadsheet size={18} /> 5. Output Sheets</span>
-          {expandedSection === 'sheets' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('sheets') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'sheets' && (
+        {expandedSections.includes('sheets') && (
           <div className="p-6">
             <table className="w-full text-left border-collapse mb-4">
               <thead>
@@ -918,10 +954,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><Database size={18} /> 6. Sheet Details (RDEs)</span>
-          {expandedSection === 'rdes' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('rdes') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'rdes' && (
+        {expandedSections.includes('rdes') && (
           <div className="p-6">
             {sheets.length === 0 ? (
               <p className="text-slate-400 text-sm italic">Add output sheets first to configure RDEs.</p>
@@ -1017,10 +1053,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><ListChecks size={18} /> 7. Helper Routines</span>
-          {expandedSection === 'helpers' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('helpers') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'helpers' && (
+        {expandedSections.includes('helpers') && (
            <div className="p-6">
               <div className="mb-4">
                  <label className="block text-sm font-medium text-slate-700 mb-2">Selected Helper Routines</label>
@@ -1086,10 +1122,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
         >
           <span className="font-semibold text-slate-700 flex items-center gap-2"><MousePointerClick size={18} /> 8. User Inputs</span>
-          {expandedSection === 'userInputs' ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+          {expandedSections.includes('userInputs') ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </button>
         
-        {expandedSection === 'userInputs' && (
+        {expandedSections.includes('userInputs') && (
            <div className="p-6">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm mb-4">
