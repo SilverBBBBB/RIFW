@@ -152,15 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     return Object.keys(counts).map(key => ({ name: key, count: counts[key] }));
   }, [routines]);
 
-  // 2. By Region (Pie)
-  const regionData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    routines.forEach(r => {
-      const key = r.region || 'Global';
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
-  }, [routines]);
+
 
   // 3. By Group (Bar)
   const groupData = useMemo(() => {
@@ -176,18 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
       .slice(0, 8); // Top 8 groups
   }, [routines]);
 
-  // 4. Complexity: Top Routines by # of Reports
-  const complexityData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    reports.forEach(r => {
-      counts[r.routine_name] = (counts[r.routine_name] || 0) + 1;
-    });
-    // Convert to array, sort desc, take top 5
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name: name.length > 20 ? name.substring(0,20)+'...' : name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [reports]);
+
 
   // --- Filtering & Sorting Logic ---
   
@@ -588,7 +569,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
       </div>
 
       {/* 2. Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 gap-6 mb-6">
         {/* By Type */}
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center justify-between mb-4">
@@ -609,35 +590,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
           </div>
         </div>
 
-        {/* By Region */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-700 flex items-center gap-2">
-              <PieChartIcon size={18} className="text-emerald-500" /> Regional Distribution
-            </h3>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={regionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {regionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                <Legend iconType="circle" layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize: '12px'}} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+
 
         {/* By Group */}
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
@@ -659,25 +612,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
           </div>
         </div>
 
-        {/* Complexity (Reports count) */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-700 flex items-center gap-2">
-               <Database size={18} className="text-orange-500" /> Complexity (Reports per Routine)
-            </h3>
-          </div>
-          <div className="h-64 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={complexityData} margin={{ left: 30 }}>
-                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                   <XAxis type="number" hide />
-                   <YAxis dataKey="name" type="category" width={140} tick={{fontSize: 11, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: '#f1f5f9'}} />
-                   <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
-                </BarChart>
-             </ResponsiveContainer>
-          </div>
-        </div>
+
       </div>
 
 
