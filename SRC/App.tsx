@@ -5,14 +5,17 @@ import RoutineForm from './components/RoutineForm';
 import RoutineDetails from './components/RoutineDetails';
 import AdditionalDetailsDashboard from './components/AdditionalDetailsDashboard';
 import AdminPanel from './components/AdminPanel';
+import Header from './components/Header';
 import { dataService } from './services/dataService';
+import { AuthProvider, useAuth } from './hooks/AuthContext';
 
 type View = 'dashboard' | 'create' | 'edit' | 'details' | 'additional_details' | 'admin';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const { hasRole } = useAuth();
 
   useEffect(() => {
     const init = async () => {
@@ -28,11 +31,13 @@ const App: React.FC = () => {
   };
 
   const handleEdit = (id: string) => {
+    if (!hasRole(['admin', 'user'])) return;
     setSelectedRoutineId(id);
     setCurrentView('edit');
   };
 
   const handleCreate = () => {
+    if (!hasRole(['admin', 'user'])) return;
     setSelectedRoutineId(undefined);
     setCurrentView('create');
   };
@@ -47,6 +52,7 @@ const App: React.FC = () => {
   };
 
   const handleOpenAdmin = () => {
+    if (!hasRole('admin')) return;
     setCurrentView('admin');
   };
 
@@ -63,6 +69,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
+      <Header />
       {currentView === 'dashboard' && (
         <Dashboard 
           onEdit={handleEdit} 
@@ -72,7 +79,7 @@ const App: React.FC = () => {
         />
       )}
       
-      {(currentView === 'create' || currentView === 'edit') && (
+      {(currentView === 'create' || currentView === 'edit') && hasRole(['admin', 'user']) && (
         <RoutineForm 
           mode={currentView === 'create' ? 'create' : 'edit'}
           routineId={selectedRoutineId}
@@ -95,7 +102,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {currentView === 'admin' && (
+      {currentView === 'admin' && hasRole('admin') && (
         <AdminPanel 
           onBack={handleViewAdditionalDetails}
         />
@@ -103,5 +110,11 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <AuthProvider>
+    <AppContent />
+  </AuthProvider>
+);
 
 export default App;

@@ -1,4 +1,12 @@
 
+export type UserRole = 'admin' | 'user' | 'guest';
+
+export interface User {
+  username: string;
+  role: UserRole;
+  password?: string;
+}
+
 export interface Routine {
   id: string;
   routine_name: string;

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SheetDetail, Routine } from '../types.ts';
 import { dataService } from '../services/dataService.ts';
 import { ArrowLeft, Filter, Table, Search, X, ArrowDown, ArrowUp, Plus, Save, FileText, Settings } from 'lucide-react';
+import { useAuth } from '../hooks/AuthContext';
 
 interface AdditionalDetailsDashboardProps {
   onBack: () => void;
@@ -57,6 +58,11 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
     table_name: '',
     new_model_mapping: ''
   });
+  const { hasRole, user } = useAuth();
+
+  useEffect(() => {
+    console.log('User in AdditionalDetailsDashboard:', user);
+  }, [user]);
 
   const loadData = () => {
     const data = dataService.getSheetDetailsView(filters);
@@ -319,18 +325,22 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
         </div>
         
         <div className="flex gap-3">
-          <button 
-             onClick={onOpenAdmin}
-             className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
-          >
-             <Settings size={18} /> System Admin
-          </button>
-          <button 
-             onClick={() => setIsFormOpen(true)}
-             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
-          >
-             <Plus size={18} /> Add / Edit Details
-          </button>
+          {hasRole('admin') && (
+            <button 
+               onClick={onOpenAdmin}
+               className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            >
+               <Settings size={18} /> System Admin
+            </button>
+          )}
+          {hasRole(['admin', 'user']) && (
+            <button 
+               onClick={() => setIsFormOpen(true)}
+               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            >
+               <Plus size={18} /> Add / Edit Details
+            </button>
+          )}
         </div>
       </div>
 
@@ -385,7 +395,7 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
       </div>
 
       {/* Add/Edit Modal */}
-      {isFormOpen && (
+      {isFormOpen && hasRole(['admin', 'user']) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-xl">

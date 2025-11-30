@@ -1,0 +1,167 @@
+/*
+  Azure SQL Database Schema for Routine Info Workflow
+  ---------------------------------------------------
+  Run this script in your Azure SQL Query Editor to create the necessary tables.
+*/
+
+-- 1. Routines Table
+-- Stores the core routine information. 
+-- 'fund_types' and 'helper_routines' are stored as JSON strings because they are arrays in the frontend.
+IF OBJECT_ID('dbo.Routines', 'U') IS NOT NULL DROP TABLE dbo.Routines;
+CREATE TABLE Routines (
+    id NVARCHAR(50) PRIMARY KEY,
+    routine_name NVARCHAR(255) NOT NULL,
+    routine_display_name NVARCHAR(255),
+    version NVARCHAR(50),
+    last_edited_date DATETIME2 DEFAULT GETDATE(),
+    routine_group NVARCHAR(100),
+    routine_type NVARCHAR(100),
+    fund_types NVARCHAR(MAX), -- JSON Array e.g., ["Hedge Fund", "Mutual Fund"]
+    capital_structure NVARCHAR(100),
+    region NVARCHAR(100),
+    helper_routines NVARCHAR(MAX), -- JSON Array
+    to_show NVARCHAR(10) DEFAULT 'Yes',
+    display_in_dropdown NVARCHAR(10) DEFAULT 'Yes',
+    is_active BIT DEFAULT 1
+);
+
+-- 2. Reports Table
+-- Child of Routines. Stores the list of reports associated with a routine.
+IF OBJECT_ID('dbo.Reports', 'U') IS NOT NULL DROP TABLE dbo.Reports;
+CREATE TABLE Reports (
+    id NVARCHAR(50) PRIMARY KEY,
+    routine_id NVARCHAR(50) NOT NULL,
+    report_name NVARCHAR(255) NOT NULL,
+    is_optional BIT DEFAULT 0,
+    CONSTRAINT FK_Reports_Routines FOREIGN KEY (routine_id) 
+        REFERENCES Routines(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_Reports_RoutineId ON Reports(routine_id);
+
+-- 3. CDMMappings Table
+-- Child of Reports. Stores field definitions.
+IF OBJECT_ID('dbo.CDMMappings', 'U') IS NOT NULL DROP TABLE dbo.CDMMappings;
+CREATE TABLE CDMMappings (
+    id NVARCHAR(50) PRIMARY KEY,
+    report_id NVARCHAR(50) NOT NULL,
+    field_mapping_name NVARCHAR(255) NOT NULL,
+    data_type NVARCHAR(50),
+    is_required BIT DEFAULT 0,
+    blanks_allowed NVARCHAR(20) DEFAULT 'Allowed',
+    CONSTRAINT FK_CDMMappings_Reports FOREIGN KEY (report_id) 
+        REFERENCES Reports(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_CDMMappings_ReportId ON CDMMappings(report_id);
+
+-- 4. Attributes Table
+-- Child of CDMMappings. Stores attributes mapped to specific fields.
+IF OBJECT_ID('dbo.Attributes', 'U') IS NOT NULL DROP TABLE dbo.Attributes;
+CREATE TABLE Attributes (
+    id NVARCHAR(50) PRIMARY KEY,
+    cdm_mapping_id NVARCHAR(50) NOT NULL,
+    attribute_name NVARCHAR(255) NOT NULL,
+    CONSTRAINT FK_Attributes_CDMMappings FOREIGN KEY (cdm_mapping_id) 
+        REFERENCES CDMMappings(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_Attributes_MappingId ON Attributes(cdm_mapping_id);
+
+-- 5. OutputSheets Table
+-- Child of Routines. Represents Excel tabs/sheets.
+IF OBJECT_ID('dbo.OutputSheets', 'U') IS NOT NULL DROP TABLE dbo.OutputSheets;
+CREATE TABLE OutputSheets (
+    id NVARCHAR(50) PRIMARY KEY,
+    routine_id NVARCHAR(50) NOT NULL,
+    sheet_name NVARCHAR(255) NOT NULL,
+    order_index INT DEFAULT 0,
+    CONSTRAINT FK_OutputSheets_Routines FOREIGN KEY (routine_id) 
+        REFERENCES Routines(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_OutputSheets_RoutineId ON OutputSheets(routine_id);
+
+-- 6. SheetDetails (RDEs) Table
+-- Child of OutputSheets. Represents individual rows/fields within a sheet.
+-- Includes standard formatting fields and Verification Station specific fields.
+IF OBJECT_ID('dbo.SheetDetails', 'U') IS NOT NULL DROP TABLE dbo.SheetDetails;
+CREATE TABLE SheetDetails (
+    id NVARCHAR(50) PRIMARY KEY,
+    output_sheet_id NVARCHAR(50) NOT NULL,
+    field_name NVARCHAR(255) NOT NULL,
+    fill_color_format NVARCHAR(20) DEFAULT '#FFFFFF',
+    data_format NVARCHAR(50) DEFAULT 'General',
+    column_order INT DEFAULT 0,
+    
+    -- Verification / Additional Details
+    document_type NVARCHAR(100),
+    verification_rde_name NVARCHAR(255),
+    verification_required_status NVARCHAR(50),
+    field_description NVARCHAR(MAX),
+    verification_data_type NVARCHAR(50),
+    old_model_name NVARCHAR(100),
+    old_model_mapping NVARCHAR(255),
+    new_model_name NVARCHAR(100),
+    table_name NVARCHAR(100),
+    new_model_mapping NVARCHAR(255),
+    
+    CONSTRAINT FK_SheetDetails_OutputSheets FOREIGN KEY (output_sheet_id) 
+        REFERENCES OutputSheets(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_SheetDetails_SheetId ON SheetDetails(output_sheet_id);
+
+-- 7. UserInputs Table
+-- Child of Routines. Represents manual inputs required for the routine.
+IF OBJECT_ID('dbo.UserInputs', 'U') IS NOT NULL DROP TABLE dbo.UserInputs;
+CREATE TABLE UserInputs (
+    id NVARCHAR(50) PRIMARY KEY,
+    routine_id NVARCHAR(50) NOT NULL,
+    user_input_name NVARCHAR(255) NOT NULL,
+    input_location NVARCHAR(100),
+    textbox_type NVARCHAR(100),
+    validations NVARCHAR(255),
+    min_value NVARCHAR(50),
+    max_value NVARCHAR(50),
+    is_mandatory BIT DEFAULT 0,
+    CONSTRAINT FK_UserInputs_Routines FOREIGN KEY (routine_id) 
+        REFERENCES Routines(id) ON DELETE CASCADE
+);
+CREATE INDEX IX_UserInputs_RoutineId ON UserInputs(routine_id);
+
+-- 8. AppConfig Table
+-- Stores dynamic configuration for dropdowns (Versions, Regions, etc).
+IF OBJECT_ID('dbo.AppConfig', 'U') IS NOT NULL DROP TABLE dbo.AppConfig;
+CREATE TABLE AppConfig (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    category NVARCHAR(50) NOT NULL, -- e.g., 'versions', 'fundTypes'
+    value NVARCHAR(255) NOT NULL
+);
+CREATE INDEX IX_AppConfig_Category ON AppConfig(category);
+
+-- 9. Seed Initial Config Data (Optional but recommended)
+-- This populates the dropdowns with the defaults defined in your constants.ts
+INSERT INTO AppConfig (category, value) VALUES 
+('versions', 'v1.0'), ('versions', 'v1.1'), ('versions', 'v1.2'), ('versions', 'prod v1.2'), ('versions', 'v2.0'),
+('routineTypes', 'Capital'), ('routineTypes', 'Investment'), ('routineTypes', 'Financial Reporting'), ('routineTypes', 'Investments'),
+('fundTypes', 'Equity'), ('fundTypes', 'Fixed Income'), ('fundTypes', 'Multi-Asset'), ('fundTypes', 'Real Estate'), ('fundTypes', 'Private Equity'), ('fundTypes', 'Hedge Fund'), ('fundTypes', 'Mutual Fund'), ('fundTypes', 'CIT'), ('fundTypes', 'CAS'),
+('regions', 'North America'), ('regions', 'EMEA'), ('regions', 'APAC'), ('regions', 'Global'), ('regions', 'All'),
+('capitalStructures', 'Open-Ended'), ('capitalStructures', 'Closed-Ended'), ('capitalStructures', 'Transfer Agent'), ('capitalStructures', 'N/A'),
+('dataTypes', 'String'), ('dataTypes', 'Integer'), ('dataTypes', 'Decimal'), ('dataTypes', 'Fixed Decimal'), ('dataTypes', 'Date'), ('dataTypes', 'Boolean');
+
+
+-- 10. Users table (Optional but recommended)
+IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
+CREATE TABLE [Users] (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    Username VARCHAR(255) UNIQUE NOT NULL,
+    [Password] VARCHAR(255) NOT NULL,
+    [Role] VARCHAR(50) NOT NULL DEFAULT 'User'
+);
+
+-- 11. Seed Default Users
+-- WARNING: The passwords below are in plaintext and will not work with the application's login function.
+-- You must replace 'AdminPass' and 'UserPass' with a bcrypt hash generated with 10 salt rounds.
+-- You can generate a hash using a script or an online tool. For example, in Node.js:
+-- const bcrypt = require('bcryptjs');
+-- const hashedPassword = bcrypt.hashSync('YourPasswordHere', 10);
+-- console.log(hashedPassword);
+
+INSERT INTO [Users] (Username, [Password], [Role]) VALUES ('Admin', 'AdminPass', 'Admin');
+INSERT INTO [Users] (Username, [Password]) VALUES ('User', 'UserPass'); -- Role will default to 'User'

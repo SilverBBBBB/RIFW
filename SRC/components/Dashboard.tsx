@@ -15,6 +15,7 @@ import {
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
 import { utils, writeFile } from 'xlsx';
+import { useAuth } from '../hooks/AuthContext';
 
 interface DashboardProps {
   onEdit: (id: string) => void;
@@ -60,6 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   // Drag and Drop State
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [localSheets, setLocalSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
+  const { hasRole } = useAuth();
 
   const loadData = () => {
     // Refresh config to get latest versions
@@ -476,12 +478,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                 <Monitor size={18} /> Additional Details
               </button>
             )}
-            <button 
-              onClick={onCreate}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
-            >
-              <Plus size={18} /> Add New Routine
-            </button>
+            {hasRole(['admin', 'user']) && (
+              <button 
+                onClick={onCreate}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <Plus size={18} /> Add New Routine
+              </button>
+            )}
           </div>
         </div>
 
@@ -665,7 +669,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                     <td className="p-3 text-sm text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => onViewDetails(row.id)} title="View Details" className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Eye size={16} /></button>
-                        <button onClick={() => onEdit(row.id)} title="Edit" className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded"><Edit3 size={16} /></button>
+                        {hasRole(['admin', 'user']) && <button onClick={() => onEdit(row.id)} title="Edit" className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded"><Edit3 size={16} /></button>}
                       </div>
                     </td>
                   </tr>
