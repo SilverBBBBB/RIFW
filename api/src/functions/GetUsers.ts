@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import * as jwt from 'jsonwebtoken';
 import { getPool, sql } from '../shared/sql';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = 'a-very-secret-key';
 
 interface UserPayload {
     id: number;
