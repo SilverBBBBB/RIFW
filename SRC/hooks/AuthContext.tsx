@@ -1,12 +1,5 @@
-
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
-
-// A mock database of users. In a real app, this would be in a database.
-const mockUsers: User[] = [
-  { username: 'Admin', role: 'admin', password: 'Password' },
-  { username: 'User', role: 'user', password: 'password' },
-];
 
 interface AuthContextType {
   user: User | null;
@@ -20,7 +13,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(mockUsers);
 
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
@@ -32,35 +24,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (username, password) => {
-    const foundUser = users.find(
-      (u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    );
+    const response = await fetch('/api/Login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
 
-    if (foundUser) {
-      const { password, ...userToStore } = foundUser;
-      setUser(userToStore);
-      sessionStorage.setItem('user', JSON.stringify(userToStore));
+    if (response.ok) {
+      const { user: loggedInUser } = await response.json();
+      setUser(loggedInUser);
+      sessionStorage.setItem('user', JSON.stringify(loggedInUser));
     } else {
-      throw new Error('Invalid username or password.');
+      const errorText = await response.text();
+      throw new Error(errorText || 'Invalid username or password.');
     }
   };
 
   const logout = () => {
     setUser({ username: 'Guest', role: 'guest' });
     sessionStorage.removeItem('user');
+    // In a real app, you might also want to invalidate the token on the server
   };
 
   const register = async (username, password) => {
-    if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-      throw new Error('Username already exists.');
+    const response = await fetch('/api/Register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+    });
+
+    if (response.ok) {
+      // After successful registration, automatically log the user in
+      await login(username, password);
+    } else {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Registration failed.');
     }
-    const newUser: User = { username, password, role: 'user' };
-    setUsers([...users, newUser]);
-    
-    // Automatically log in the new user
-    const { password: _, ...userToStore } = newUser;
-    setUser(userToStore);
-    sessionStorage.setItem('user', JSON.stringify(userToStore));
   };
 
   const hasRole = (roles: UserRole | UserRole[]) => {
