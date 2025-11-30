@@ -30,7 +30,7 @@ export async function UpdateUserRole(request: HttpRequest, context: InvocationCo
             return { status: 401, body: 'Unauthorized: Invalid token.' };
         }
         
-        if (decoded.role !== 'Admin') {
+        if (decoded.role?.trim().toLowerCase() !== 'admin') {
             return { status: 403, body: 'Forbidden: You do not have admin privileges.' };
         }
 

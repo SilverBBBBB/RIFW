@@ -40,7 +40,7 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
             };
         }
 
-        const token = jwt.sign({ id: user.Id, username: user.Username, role: user.Role }, JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.Id, username: user.Username, role: user.Role.trim() }, JWT_SECRET, { expiresIn: '1h' });
 
         return {
             status: 200,

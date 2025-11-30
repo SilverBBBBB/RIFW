@@ -30,7 +30,7 @@ export async function GetUsers(request: HttpRequest, context: InvocationContext)
             return { status: 401, body: 'Unauthorized: Invalid token.' };
         }
         
-        if (decoded.role !== 'Admin') {
+        if (decoded.role?.trim().toLowerCase() !== 'admin') {
             return { status: 403, body: 'Forbidden: You do not have admin privileges.' };
         }
 
