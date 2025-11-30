@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import * as jwt from 'jsonwebtoken';
 import { getPool, sql } from '../shared/sql';
 
-const JWT_SECRET = 'a-very-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const ALLOWED_ROLES = ['Admin', 'User']; // Define roles that can be assigned
 
 interface UserPayload {
@@ -17,7 +17,7 @@ export async function UpdateUserRole(request: HttpRequest, context: InvocationCo
 
     try {
         // 1. Authenticate and authorize admin
-        const authHeader = request.headers.get('Authorization');
+        const authHeader = request.headers.get('X-Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return { status: 401, body: 'Unauthorized: No token provided.' };
         }

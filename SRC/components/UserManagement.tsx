@@ -30,9 +30,8 @@ const UserManagement: React.FC = () => {
       }
       try {
         setLoading(true);
-        console.log('Token from frontend:', token);
         const response = await fetch('/api/GetUsers', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'X-Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -66,7 +65,7 @@ const UserManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'X-Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ userId: userToUpdate.Id, newRole })
       });
