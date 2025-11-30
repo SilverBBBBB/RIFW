@@ -30,6 +30,7 @@ const UserManagement: React.FC = () => {
       }
       try {
         setLoading(true);
+        console.log('Token from frontend:', token);
         const response = await fetch('/api/GetUsers', {
           headers: { 'Authorization': `Bearer ${token}` }
         });

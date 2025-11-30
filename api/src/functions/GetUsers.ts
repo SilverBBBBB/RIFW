@@ -21,6 +21,7 @@ export async function GetUsers(request: HttpRequest, context: InvocationContext)
             return { status: 401, body: 'Unauthorized: No token provided.' };
         }
         const token = authHeader.split(' ')[1];
+        context.log('Token from backend:', token);
 
         // 2. Verify the token and check for admin role
         let decoded: UserPayload;
