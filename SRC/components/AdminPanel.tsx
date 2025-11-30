@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { dataService } from '../services/dataService.ts';
 import { AppConfiguration, ConfigCategory } from '../types.ts';
 import { ArrowLeft, Plus, Settings, AlertCircle, X, ArrowUp, ArrowDown } from 'lucide-react';
+import UserManagement from './UserManagement';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -98,6 +99,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2">
+          <UserManagement />
+        </div>
         {categories.map((cat) => (
           <div key={cat.key} className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
             <div className="p-5 border-b border-slate-100 bg-slate-50 rounded-t-xl">

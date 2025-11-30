@@ -25,8 +25,8 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
 
         if (result.recordset.length === 0) {
             return {
-                status: 401,
-                body: "Invalid username or password."
+                status: 404,
+                body: "User not found"
             };
         }
 
@@ -36,7 +36,7 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
         if (!passwordMatch) {
             return {
                 status: 401,
-                body: "Invalid username or password."
+                body: "Incorrect password."
             };
         }
 

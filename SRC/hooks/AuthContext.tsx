@@ -1,8 +1,11 @@
+
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
+import { toast } from 'react-toastify';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   login: (username, password) => Promise<void>;
   logout: () => void;
   register: (username, password) => Promise<void>;
@@ -13,11 +16,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
-    if (storedUser) {
+    const storedToken = sessionStorage.getItem('token');
+    if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
+      setToken(storedToken);
     } else {
       setUser({ username: 'Guest', role: 'guest' });
     }
@@ -31,19 +37,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (response.ok) {
-      const { user: loggedInUser } = await response.json();
+      const { user: loggedInUser, token: newToken } = await response.json();
       setUser(loggedInUser);
+      setToken(newToken);
       sessionStorage.setItem('user', JSON.stringify(loggedInUser));
+      sessionStorage.setItem('token', newToken);
     } else {
       const errorText = await response.text();
-      throw new Error(errorText || 'Invalid username or password.');
+      toast.error(errorText || 'Invalid username or password.');
     }
   };
 
   const logout = () => {
     setUser({ username: 'Guest', role: 'guest' });
+    setToken(null);
     sessionStorage.removeItem('user');
-    // In a real app, you might also want to invalidate the token on the server
+    sessionStorage.removeItem('token');
   };
 
   const register = async (username, password) => {
@@ -54,11 +63,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (response.ok) {
-      // After successful registration, automatically log the user in
-      await login(username, password);
+      toast.success('User registered successfully! Please log in.');
     } else {
       const errorText = await response.text();
-      throw new Error(errorText || 'Registration failed.');
+      toast.error(errorText || 'Registration failed.');
     }
   };
 
@@ -69,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, hasRole }}>
+    <AuthContext.Provider value={{ user, token, login, logout, register, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

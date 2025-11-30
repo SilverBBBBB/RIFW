@@ -8,6 +8,8 @@ import AdminPanel from './components/AdminPanel';
 import Header from './components/Header';
 import { dataService } from './services/dataService';
 import { AuthProvider, useAuth } from './hooks/AuthContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 type View = 'dashboard' | 'create' | 'edit' | 'details' | 'additional_details' | 'admin';
 
@@ -114,6 +116,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => (
   <AuthProvider>
     <AppContent />
+    <ToastContainer aria-label="toast-container" />
   </AuthProvider>
 );
 

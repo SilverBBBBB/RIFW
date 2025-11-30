@@ -1,40 +1,29 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/AuthContext';
+import { toast } from 'react-toastify';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const { login, register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    try {
-      await login(username, password);
-    } catch (err) {
-      setError(err.message);
-    }
+    await login(username, password);
   };
 
   const handleRegister = async () => {
-    setError('');
     if (!username || !password) {
-      setError('Username and password are required to register.');
+      toast.error('Username and password are required to register.');
       return;
     }
-    try {
-      await register(username, password);
-    } catch (err) {
-      setError(err.message);
-    }
+    await register(username, password);
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
       <div className="flex flex-col">
-        {error && <p className="text-red-500 text-xs absolute -top-5">{error}</p>}
         <div className="flex items-center gap-2">
           <input
             type="text"
