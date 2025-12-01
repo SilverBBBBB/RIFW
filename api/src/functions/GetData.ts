@@ -1,3 +1,4 @@
+
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool } from '../shared/sql';
 
@@ -16,7 +17,8 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             rSheets, 
             rDetails, 
             rUserInputs, 
-            rConfig
+            rConfig,
+            rActivityLogs
         ] = await Promise.all([
             pool.request().query('SELECT * FROM Routines'),
             pool.request().query('SELECT * FROM Reports'),
@@ -25,7 +27,8 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             pool.request().query('SELECT * FROM OutputSheets'),
             pool.request().query('SELECT * FROM SheetDetails'),
             pool.request().query('SELECT * FROM UserInputs'),
-            pool.request().query('SELECT * FROM AppConfig')
+            pool.request().query('SELECT * FROM AppConfig'),
+            pool.request().query('SELECT * FROM ActivityLog')
         ]);
 
         // Process Config into object
@@ -58,7 +61,8 @@ export async function getData(request: HttpRequest, context: InvocationContext):
                 outputSheets: rSheets.recordset,
                 sheetDetails: rDetails.recordset,
                 userInputs: rUserInputs.recordset.map((u: any) => ({ ...u, is_mandatory: !!u.is_mandatory })),
-                config: configObj
+                config: configObj,
+                activityLogs: rActivityLogs.recordset
             }
         };
     } catch (err: any) {

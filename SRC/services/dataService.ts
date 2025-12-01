@@ -3,7 +3,7 @@ import {
   RoutineFilters, AppConfiguration, ConfigCategory
 } from '../types';
 import { 
-  MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS, MOCK_ACTIVITY_LOGS,
+  MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS,
   VERSIONS, ROUTINE_TYPES, FUND_TYPES, REGIONS, CAPITAL_STRUCTURES, DATA_TYPES, PREDEFINED_REPORTS, HELPER_ROUTINES_LIST
 } from '../constants';
 
@@ -95,7 +95,7 @@ class DataService {
     this.outputSheets = [...MOCK_OUTPUT_SHEETS];
     this.sheetDetails = [...MOCK_SHEET_DETAILS];
     this.userInputs = [...MOCK_USER_INPUTS];
-    this.activityLogs = [...MOCK_ACTIVITY_LOGS];
+    this.activityLogs = [];
     this.config = this.getDefaultConfig();
   }
 

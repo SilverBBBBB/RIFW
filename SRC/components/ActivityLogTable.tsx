@@ -18,7 +18,6 @@ const ActivityLogTable: React.FC = () => {
   const [openHeaderKey, setOpenHeaderKey] = useState<string | null>(null);
 
   useEffect(() => {
-    // This is a placeholder. We will implement the real data fetching later.
     setLogs(dataService.getActivityLogs()); 
   }, []);
 
