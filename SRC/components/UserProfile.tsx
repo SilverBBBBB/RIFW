@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/AuthContext';
 const UserProfile: React.FC = () => {
   const { user, logout } = useAuth();
 
-  if (!user || user.role === 'guest') {
+  if (!user || user.role.toLowerCase() === 'guest') {
     return null;
   }
 

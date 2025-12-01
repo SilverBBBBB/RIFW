@@ -11,7 +11,7 @@ const Header: React.FC = () => {
     <header className="flex justify-between items-center p-4 mb-6 bg-white rounded-lg shadow-md">
       <h1 className="text-2xl font-bold text-slate-800">Routine Info for Workflow</h1>
       <div>
-        {user && user.role !== 'guest' ? <UserProfile /> : <Login />}
+        {user && user.role.toLowerCase() !== 'guest' ? <UserProfile /> : <Login />}
       </div>
     </header>
   );

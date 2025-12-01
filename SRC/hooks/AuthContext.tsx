@@ -73,7 +73,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const hasRole = (roles: UserRole | UserRole[]) => {
     if (!user) return false;
     const userRoles = Array.isArray(roles) ? roles : [roles];
-    return userRoles.includes(user.role);
+    const lowercasedUserRole = user.role.toLowerCase();
+    return userRoles.some(role => role.toLowerCase() === lowercasedUserRole);
   };
 
   return (
