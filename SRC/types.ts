@@ -113,15 +113,44 @@ export interface RoutineFilters {
   endDate: string;
 }
 
+
+
 export interface AppConfiguration {
+
   versions: string[];
+
   routineTypes: string[];
+
   fundTypes: string[];
+
   regions: string[];
+
   capitalStructures: string[];
+
   dataTypes: string[];
+
   reportNames: string[];
+
   helperRoutines: string[];
+
 }
+
+
+
+export interface ActivityLog {
+
+  log_id: string;
+
+  user_id: string;
+
+  activity_type: string;
+
+  activity_timestamp: string;
+
+  details: string;
+
+}
+
+
 
 export type ConfigCategory = keyof AppConfiguration;

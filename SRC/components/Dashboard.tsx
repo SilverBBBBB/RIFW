@@ -5,10 +5,11 @@ import {
   AttributeViewRow, OutputSheet, SheetDetail, UserInputViewRow
 } from '../types.ts';
 import { dataService } from '../services/dataService.ts';
+import ActivityLogTable from './ActivityLogTable';
 import { 
   Filter, Plus, Edit3, Eye, FileText, Database, Layers, 
   Table as TableIcon, X, ArrowUp, ArrowDown, ArrowDownUp, Search, GripVertical, Monitor,
-  PieChart as PieChartIcon, BarChart3, MousePointerClick, Download
+  PieChart as PieChartIcon, BarChart3, MousePointerClick, Download, History
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -307,6 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     { name: 'Sheets', icon: <FileText size={16} /> },
     { name: 'RDEs', icon: <TableIcon size={16} /> },
     { name: 'User Inputs', icon: <MousePointerClick size={16} /> },
+    { name: 'Activity Log', icon: <History size={16} /> },
   ];
 
   // --- Drag and Drop Handlers ---
@@ -855,6 +857,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   {processedUserInputs.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No User Inputs found.</td></tr>}
                </tbody>
             </table>
+          )}
+          {activeTab === 7 && (
+            <ActivityLogTable />
           )}
         </div>
       </div>

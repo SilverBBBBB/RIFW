@@ -1,10 +1,9 @@
-
 import { 
-  Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput,
+  Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, ActivityLog,
   RoutineFilters, AppConfiguration, ConfigCategory
 } from '../types';
 import { 
-  MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS,
+  MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS, MOCK_ACTIVITY_LOGS,
   VERSIONS, ROUTINE_TYPES, FUND_TYPES, REGIONS, CAPITAL_STRUCTURES, DATA_TYPES, PREDEFINED_REPORTS, HELPER_ROUTINES_LIST
 } from '../constants';
 
@@ -16,6 +15,7 @@ class DataService {
   private outputSheets: OutputSheet[] = [];
   private sheetDetails: SheetDetail[] = [];
   private userInputs: UserInput[] = [];
+  private activityLogs: ActivityLog[] = [];
 
   private isInitialized = false;
   private useApi = true;
@@ -51,6 +51,7 @@ class DataService {
       this.outputSheets = data.outputSheets;
       this.sheetDetails = data.sheetDetails;
       this.userInputs = data.userInputs || [];
+      this.activityLogs = data.activityLogs || [];
       this.config = data.config;
       this.useApi = true;
 
@@ -74,6 +75,7 @@ class DataService {
         this.outputSheets = data.outputSheets || [];
         this.sheetDetails = data.sheetDetails || [];
         this.userInputs = data.userInputs || [];
+        this.activityLogs = data.activityLogs || [];
         this.config = data.config || this.getDefaultConfig();
       } catch (e) {
         console.error("Failed to parse local storage data", e);
@@ -93,6 +95,7 @@ class DataService {
     this.outputSheets = [...MOCK_OUTPUT_SHEETS];
     this.sheetDetails = [...MOCK_SHEET_DETAILS];
     this.userInputs = [...MOCK_USER_INPUTS];
+    this.activityLogs = [...MOCK_ACTIVITY_LOGS];
     this.config = this.getDefaultConfig();
   }
 
@@ -118,6 +121,7 @@ class DataService {
       outputSheets: this.outputSheets,
       sheetDetails: this.sheetDetails,
       userInputs: this.userInputs,
+      activityLogs: this.activityLogs,
       config: this.config
     };
     localStorage.setItem('amap_data', JSON.stringify(data));
@@ -282,6 +286,10 @@ class DataService {
   
   getUserInputsByRoutineId(routineId: string): UserInput[] {
     return this.userInputs.filter(ui => ui.routine_id === routineId);
+  }
+  
+  getActivityLogs(): ActivityLog[] {
+    return this.activityLogs;
   }
 
   // --- VIEWS ---
