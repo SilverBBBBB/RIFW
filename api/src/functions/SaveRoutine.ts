@@ -27,6 +27,12 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             .query('DELETE FROM Routines WHERE id = @id');
 
         // 2. Insert Routine
+        const existingRoutine = await new sql.Request(transaction)
+            .input('id', sql.NVarChar(50), routine.id)
+            .query('SELECT * FROM Routines WHERE id = @id');
+
+        const change_type = existingRoutine.recordset.length > 0 ? 'Updated' : 'Created';
+
         await new sql.Request(transaction)
             .input('id', sql.NVarChar(50), routine.id)
             .input('routine_name', sql.NVarChar(255), routine.routine_name)
@@ -46,6 +52,17 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             (id, routine_name, routine_display_name, version, last_edited_date, routine_group, routine_type, fund_types, capital_structure, region, helper_routines, to_show, display_in_dropdown, is_active)
             VALUES 
             (@id, @routine_name, @routine_display_name, @version, @last_edited_date, @routine_group, @routine_type, @fund_types, @capital_structure, @region, @helper_routines, @to_show, @display_in_dropdown, @is_active)`);
+
+        // Insert into ActivityLog
+        await new sql.Request(transaction)
+            .input('routine_id', sql.NVarChar(50), routine.id)
+            .input('routine_name', sql.NVarChar(255), routine.routine_name)
+            .input('changed_by', sql.NVarChar(255), 'Admin') // TODO: Replace with actual user
+            .input('change_type', sql.NVarChar(50), change_type)
+            .input('change_details', sql.NVarChar(sql.MAX), JSON.stringify(body))
+            .query(`INSERT INTO ActivityLog (routine_id, routine_name, changed_by, change_type, change_details)
+                    VALUES (@routine_id, @routine_name, @changed_by, @change_type, @change_details)`);
+
 
         // 3. Insert Children
         

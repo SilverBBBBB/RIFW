@@ -115,7 +115,7 @@ CREATE TABLE UserInputs (
     routine_id NVARCHAR(50) NOT NULL,
     user_input_name NVARCHAR(255) NOT NULL,
     input_location NVARCHAR(100),
-    textbox_type NVARCHAR(100),
+    textbox_.type NVARCHAR(100),
     validations NVARCHAR(255),
     min_value NVARCHAR(50),
     max_value NVARCHAR(50),
@@ -158,10 +158,23 @@ CREATE TABLE [Users] (
 -- 11. Seed Default Users
 -- WARNING: The passwords below are in plaintext and will not work with the application's login function.
 -- You must replace 'AdminPass' and 'UserPass' with a bcrypt hash generated with 10 salt rounds.
--- You can generate a hash using a script or an online tool. For example, in Node.js:
+-- You can generate a hash using a script or an online tool.. For example, in Node.js:
 -- const bcrypt = require('bcryptjs');
 -- const hashedPassword = bcrypt.hashSync('YourPasswordHere', 10);
 -- console.log(hashedPassword);
 
 INSERT INTO [Users] (Username, [Password], [Role]) VALUES ('Admin', 'AdminPass', 'Admin');
 INSERT INTO [Users] (Username, [Password]) VALUES ('User', 'UserPass'); -- Role will default to 'User'
+
+-- 12. ActivityLog Table
+-- This table will store the history of changes made to the Routines table.
+IF OBJECT_ID('dbo.ActivityLog', 'U') IS NOT NULL DROP TABLE dbo.ActivityLog;
+CREATE TABLE ActivityLog (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    routine_id NVARCHAR(50),
+    routine_name NVARCHAR(255),
+    changed_by NVARCHAR(255),
+    change_type NVARCHAR(50),
+    change_details NVARCHAR(MAX),
+    timestamp DATETIME2 DEFAULT GETDATE()
+);
