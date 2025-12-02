@@ -86,7 +86,7 @@ const AppContent: React.FC = () => {
           mode={currentView === 'create' ? 'create' : 'edit'}
           routineId={selectedRoutineId}
           onCancel={navigateToDashboard}
-          onSave={navigateToDashboard}
+          onSave={(username: string) => navigateToDashboard()}
         />
       )}
 

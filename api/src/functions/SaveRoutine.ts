@@ -21,18 +21,20 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
     try {
         await transaction.begin();
 
-        // 1. Delete existing hierarchy (Cascade delete handles children)
-        await new sql.Request(transaction)
-            .input('id', sql.NVarChar(50), routine.id)
-            .query('DELETE FROM Routines WHERE id = @id');
-
-        // 2. Insert Routine
         const existingRoutine = await new sql.Request(transaction)
             .input('id', sql.NVarChar(50), routine.id)
             .query('SELECT * FROM Routines WHERE id = @id');
 
         const change_type = existingRoutine.recordset.length > 0 ? 'Updated' : 'Created';
 
+        // 1. Delete existing hierarchy (Cascade delete handles children)
+        if (existingRoutine.recordset.length > 0) {
+            await new sql.Request(transaction)
+                .input('id', sql.NVarChar(50), routine.id)
+                .query('DELETE FROM Routines WHERE id = @id');
+        }
+
+        // 2. Insert Routine
         await new sql.Request(transaction)
             .input('id', sql.NVarChar(50), routine.id)
             .input('routine_name', sql.NVarChar(255), routine.routine_name)
@@ -57,7 +59,7 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
         await new sql.Request(transaction)
             .input('routine_id', sql.NVarChar(50), routine.id)
             .input('routine_name', sql.NVarChar(255), routine.routine_name)
-            .input('changed_by', sql.NVarChar(255), 'Admin') // TODO: Replace with actual user
+            .input('changed_by', sql.NVarChar(255), body.username)
             .input('change_type', sql.NVarChar(50), change_type)
             .input('change_details', sql.NVarChar(sql.MAX), JSON.stringify(body))
             .query(`INSERT INTO ActivityLog (routine_id, routine_name, changed_by, change_type, change_details)

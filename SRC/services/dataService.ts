@@ -127,7 +127,7 @@ class DataService {
     localStorage.setItem('amap_data', JSON.stringify(data));
   }
 
-  private async saveToApi(routineId: string) {
+  private async saveToApi(routineId: string, username: string) {
     if (!this.useApi) {
       this.saveToLocalStorage();
       return;
@@ -148,7 +148,7 @@ class DataService {
     const userInputs = this.userInputs.filter(u => u.routine_id === routineId);
 
     const payload = {
-        routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs
+        routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, username
     };
 
     try {
@@ -381,7 +381,8 @@ class DataService {
     attributes: Attribute[],
     outputSheets: OutputSheet[],
     sheetDetails: SheetDetail[],
-    userInputs: UserInput[]
+    userInputs: UserInput[],
+    username: string
   ): void {
     const existingIndex = this.routines.findIndex(r => r.id === routine.id);
     const now = new Date().toISOString();
@@ -424,7 +425,7 @@ class DataService {
     this.userInputs.push(...userInputs);
 
     // Persist to Backend or Local Storage
-    this.saveToApi(routine.id);
+    this.saveToApi(routine.id, username);
   }
   
   deleteRoutine(id: string): void {

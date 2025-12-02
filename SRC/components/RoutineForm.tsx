@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, AppConfiguration, UserInput
@@ -7,17 +6,19 @@ import { dataService } from '../services/dataService.ts';
 import { PREDEFINED_REPORTS, HELPER_ROUTINES_LIST, INPUT_LOCATIONS, TEXTBOX_TYPES } from '../constants.ts';
 import { ChevronDown, ChevronUp, Trash2, Plus, Save, ArrowLeft, Copy, Layout, FileSpreadsheet, Database, Workflow, X, Settings, AlertTriangle, ListChecks, MousePointerClick } from 'lucide-react';
 import ExpandCollapseAllButton from './ExpandCollapseAllButton.tsx';
+import { useAuth } from '../hooks/AuthContext.tsx';
 
 interface RoutineFormProps {
   mode: 'create' | 'edit';
   routineId?: string;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: (username: string) => void;
 }
 
 const ALL_SECTIONS = ['core', 'reports', 'mapping', 'attributes', 'sheets', 'rdes', 'helpers', 'userInputs'];
 
 const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, onSave }) => {
+  const { user } = useAuth();
   const [config, setConfig] = useState<AppConfiguration | null>(null);
   const [routine, setRoutine] = useState<Partial<Routine>>({
     routine_name: '',
@@ -205,8 +206,8 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       last_edited_date: new Date().toISOString()
     } as Routine;
 
-    dataService.saveRoutine(finalRoutine, reports, mappings, attributes, sheets, rdes, userInputs);
-    onSave();
+    dataService.saveRoutine(finalRoutine, reports, mappings, attributes, sheets, rdes, userInputs, user.username);
+    onSave(user.username);
   };
 
   const handleDelete = () => {
@@ -222,7 +223,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     if (idToDelete) {
       dataService.deleteRoutine(idToDelete);
       setDeleteModalOpen(false);
-      onSave(); // Navigate back to dashboard
+      onSave(user.username); // Navigate back to dashboard
     }
   };
 
@@ -231,7 +232,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     if (routine.id) {
       dataService.createNewVersion(routine.id, newVersionName);
       setVersionModalOpen(false);
-      onSave();
+      onSave(user.username);
     }
   };
 

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dataService } from '../services/dataService';
 import { ActivityLog } from '../types';
-import { Filter, Search, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { Filter, Search, X, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
 
 type SortDirection = 'asc' | 'desc';
 
@@ -16,10 +16,21 @@ const ActivityLogTable: React.FC = () => {
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [openHeaderKey, setOpenHeaderKey] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setLogs(dataService.getActivityLogs());
   }, []);
+
+  const toggleRowExpansion = (id: number) => {
+    const newExpandedRows = new Set(expandedRows);
+    if (newExpandedRows.has(id)) {
+      newExpandedRows.delete(id);
+    } else {
+      newExpandedRows.add(id);
+    }
+    setExpandedRows(newExpandedRows);
+  };
 
   const handleColumnFilterChange = (key: string, value: string) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
@@ -198,6 +209,7 @@ const ActivityLogTable: React.FC = () => {
     <table className="w-full text-left border-collapse">
       <thead>
         <tr>
+          <th className="w-12"></th>
           <ColumnHeader label="Log ID" columnKey="id" minWidth="100px" />
           <ColumnHeader label="Routine ID" columnKey="routine_id" minWidth="150px" />
           <ColumnHeader label="Routine Name" columnKey="routine_name" minWidth="200px" />
@@ -208,18 +220,34 @@ const ActivityLogTable: React.FC = () => {
       </thead>
       <tbody className="divide-y divide-slate-100">
         {processedLogs.map((log) => (
-          <tr key={log.id} className="hover:bg-slate-50">
-            <td className="p-3 text-sm text-slate-500 font-mono">{log.id}</td>
-            <td className="p-3 text-sm text-slate-600">{log.routine_id}</td>
-            <td className="p-3 text-sm text-slate-600">{log.routine_name}</td>
-            <td className="p-3 text-sm text-slate-600">{log.changed_by}</td>
-            <td className="p-3 text-sm text-slate-600">{log.change_type}</td>
-            <td className="p-3 text-sm text-slate-600">{new Date(log.timestamp).toLocaleString()}</td>
-          </tr>
+          <React.Fragment key={log.id}>
+            <tr className="hover:bg-slate-50">
+              <td className="p-3 text-center">
+                <button onClick={() => toggleRowExpansion(log.id)} className="p-1 rounded-full hover:bg-slate-200">
+                  {expandedRows.has(log.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+              </td>
+              <td className="p-3 text-sm text-slate-500 font-mono">{log.id}</td>
+              <td className="p-3 text-sm text-slate-600">{log.routine_id}</td>
+              <td className="p-3 text-sm text-slate-600">{log.routine_name}</td>
+              <td className="p-3 text-sm text-slate-600">{log.changed_by}</td>
+              <td className="p-3 text-sm text-slate-600">{log.change_type}</td>
+              <td className="p-3 text-sm text-slate-600">{new Date(log.timestamp).toLocaleString()}</td>
+            </tr>
+            {expandedRows.has(log.id) && (
+              <tr>
+                <td colSpan={7} className="p-4 bg-slate-50">
+                  <pre className="text-xs bg-white p-4 rounded-md shadow-inner overflow-auto">
+                    {JSON.stringify(JSON.parse(log.change_details), null, 2)}
+                  </pre>
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
         ))}
         {processedLogs.length === 0 && (
           <tr>
-            <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+            <td colSpan={7} className="p-8 text-center text-slate-400 italic">
               No activity logs found.
             </td>
           </tr>
