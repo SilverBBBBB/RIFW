@@ -18,15 +18,7 @@ const ActivityLogTable: React.FC = () => {
   const [openHeaderKey, setOpenHeaderKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const rawLogs = dataService.getActivityLogs();
-    const transformedLogs = rawLogs.map((log: any) => ({
-      log_id: log.Log_id,
-      user_id: log.User_id,
-      activity_type: log.Activity_type,
-      activity_timestamp: log.Activity_timestamp,
-      details: log.Details,
-    }));
-    setLogs(transformedLogs);
+    setLogs(dataService.getActivityLogs());
   }, []);
 
   const handleColumnFilterChange = (key: string, value: string) => {
@@ -74,16 +66,15 @@ const ActivityLogTable: React.FC = () => {
   const processedLogs = useMemo(() => {
     const filtered = logs.filter(log => {
       return (
-        filterValueMatches(log.log_id, columnFilters['log_id']) &&
-        filterValueMatches(log.user_id, columnFilters['user_id']) &&
-        filterValueMatches(log.activity_type, columnFilters['activity_type']) &&
-        filterValueMatches(log.activity_timestamp, columnFilters['activity_timestamp']) &&
-        filterValueMatches(log.details, columnFilters['details'])
+        filterValueMatches(log.id, columnFilters['id']) &&
+        filterValueMatches(log.routine_id, columnFilters['routine_id']) &&
+        filterValueMatches(log.routine_name, columnFilters['routine_name']) &&
+        filterValueMatches(log.changed_by, columnFilters['changed_by']) &&
+        filterValueMatches(log.change_type, columnFilters['change_type']) &&
+        filterValueMatches(log.timestamp, columnFilters['timestamp'])
       );
     });
-    const sorted = applySort(filtered);
-    console.log('Processed Logs:', sorted);
-    return sorted;
+    return applySort(filtered);
   }, [logs, columnFilters, sortConfig]);
 
   const ColumnHeader = ({ 
@@ -207,26 +198,28 @@ const ActivityLogTable: React.FC = () => {
     <table className="w-full text-left border-collapse">
       <thead>
         <tr>
-          <ColumnHeader label="Log ID" columnKey="log_id" minWidth="100px" />
-          <ColumnHeader label="User ID" columnKey="user_id" minWidth="150px" />
-          <ColumnHeader label="Activity Type" columnKey="activity_type" minWidth="150px" />
-          <ColumnHeader label="Timestamp" columnKey="activity_timestamp" minWidth="200px" />
-          <ColumnHeader label="Details" columnKey="details" minWidth="300px" />
+          <ColumnHeader label="Log ID" columnKey="id" minWidth="100px" />
+          <ColumnHeader label="Routine ID" columnKey="routine_id" minWidth="150px" />
+          <ColumnHeader label="Routine Name" columnKey="routine_name" minWidth="200px" />
+          <ColumnHeader label="Changed By" columnKey="changed_by" minWidth="150px" />
+          <ColumnHeader label="Change Type" columnKey="change_type" minWidth="150px" />
+          <ColumnHeader label="Timestamp" columnKey="timestamp" minWidth="200px" />
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
         {processedLogs.map((log) => (
-          <tr key={log.log_id} className="hover:bg-slate-50">
-            <td className="p-3 text-sm text-slate-500 font-mono">{log.log_id}</td>
-            <td className="p-3 text-sm text-slate-600">{log.user_id}</td>
-            <td className="p-3 text-sm text-slate-600">{log.activity_type}</td>
-            <td className="p-3 text-sm text-slate-600">{new Date(log.activity_timestamp).toLocaleString()}</td>
-            <td className="p-3 text-sm text-slate-600">{log.details}</td>
+          <tr key={log.id} className="hover:bg-slate-50">
+            <td className="p-3 text-sm text-slate-500 font-mono">{log.id}</td>
+            <td className="p-3 text-sm text-slate-600">{log.routine_id}</td>
+            <td className="p-3 text-sm text-slate-600">{log.routine_name}</td>
+            <td className="p-3 text-sm text-slate-600">{log.changed_by}</td>
+            <td className="p-3 text-sm text-slate-600">{log.change_type}</td>
+            <td className="p-3 text-sm text-slate-600">{new Date(log.timestamp).toLocaleString()}</td>
           </tr>
         ))}
         {processedLogs.length === 0 && (
           <tr>
-            <td colSpan={5} className="p-8 text-center text-slate-400 italic">
+            <td colSpan={6} className="p-8 text-center text-slate-400 italic">
               No activity logs found.
             </td>
           </tr>

@@ -138,17 +138,13 @@ export interface AppConfiguration {
 
 
 export interface ActivityLog {
-
-  log_id: string;
-
-  user_id: string;
-
-  activity_type: string;
-
-  activity_timestamp: string;
-
-  details: string;
-
+  id: number;
+  routine_id: string;
+  routine_name: string;
+  changed_by: string;
+  change_type: string;
+  change_details: string;
+  timestamp: string;
 }
 
 
