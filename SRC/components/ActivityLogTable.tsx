@@ -18,7 +18,15 @@ const ActivityLogTable: React.FC = () => {
   const [openHeaderKey, setOpenHeaderKey] = useState<string | null>(null);
 
   useEffect(() => {
-    setLogs(dataService.getActivityLogs()); 
+    const rawLogs = dataService.getActivityLogs();
+    const transformedLogs = rawLogs.map((log: any) => ({
+      log_id: log.Log_id,
+      user_id: log.User_id,
+      activity_type: log.Activity_type,
+      activity_timestamp: log.Activity_timestamp,
+      details: log.Details,
+    }));
+    setLogs(transformedLogs);
   }, []);
 
   const handleColumnFilterChange = (key: string, value: string) => {
@@ -73,7 +81,9 @@ const ActivityLogTable: React.FC = () => {
         filterValueMatches(log.details, columnFilters['details'])
       );
     });
-    return applySort(filtered);
+    const sorted = applySort(filtered);
+    console.log('Processed Logs:', sorted);
+    return sorted;
   }, [logs, columnFilters, sortConfig]);
 
   const ColumnHeader = ({ 
