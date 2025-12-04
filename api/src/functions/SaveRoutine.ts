@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool, sql } from '../shared/sql';
+import { compareRoutines } from './CompareRoutine';
 
 export async function saveRoutine(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     let body: any;
@@ -10,7 +11,7 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
     }
 
     const { routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs } = body;
-    
+
     if (!routine || !routine.id) {
         return { status: 400, body: "Invalid payload: Missing routine ID" };
     }
@@ -26,6 +27,41 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             .query('SELECT * FROM Routines WHERE id = @id');
 
         const change_type = existingRoutine.recordset.length > 0 ? 'Updated' : 'Created';
+
+        let delta = body; // Default to full body for Created
+
+        if (change_type === 'Updated') {
+            // Fetch full existing data to compare
+            const rId = routine.id;
+            const req = () => new sql.Request(transaction).input('id', sql.NVarChar(50), rId);
+
+            const [eReports, eMappings, eAttributes, eOutputSheets, eSheetDetails, eUserInputs] = await Promise.all([
+                req().query('SELECT * FROM Reports WHERE routine_id = @id'),
+                req().query('SELECT m.* FROM CDMMappings m JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id'),
+                req().query('SELECT a.* FROM Attributes a JOIN CDMMappings m ON a.cdm_mapping_id = m.id JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id'),
+                req().query('SELECT * FROM OutputSheets WHERE routine_id = @id'),
+                req().query('SELECT d.* FROM SheetDetails d JOIN OutputSheets s ON d.output_sheet_id = s.id WHERE s.routine_id = @id'),
+                req().query('SELECT * FROM UserInputs WHERE routine_id = @id')
+            ]);
+
+            const oldRoutineObj = existingRoutine.recordset[0];
+            // Normalize old routine fields
+            oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
+            oldRoutineObj.helper_routines = oldRoutineObj.helper_routines ? JSON.parse(oldRoutineObj.helper_routines) : [];
+            oldRoutineObj.is_active = !!oldRoutineObj.is_active;
+
+            const existingData = {
+                routine: oldRoutineObj,
+                reports: eReports.recordset.map((r: any) => ({ ...r, is_optional: !!r.is_optional })),
+                mappings: eMappings.recordset.map((m: any) => ({ ...m, is_required: !!m.is_required })),
+                attributes: eAttributes.recordset,
+                outputSheets: eOutputSheets.recordset,
+                sheetDetails: eSheetDetails.recordset,
+                userInputs: eUserInputs.recordset.map((u: any) => ({ ...u, is_mandatory: !!u.is_mandatory }))
+            };
+
+            delta = compareRoutines(existingData, body);
+        }
 
         // 1. Delete existing hierarchy (Cascade delete handles children)
         if (existingRoutine.recordset.length > 0) {
@@ -61,97 +97,97 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             .input('routine_name', sql.NVarChar(255), routine.routine_name)
             .input('changed_by', sql.NVarChar(255), body.username)
             .input('change_type', sql.NVarChar(50), change_type)
-            .input('change_details', sql.NVarChar(sql.MAX), JSON.stringify(body))
+            .input('change_details', sql.NVarChar(sql.MAX), JSON.stringify(delta))
             .query(`INSERT INTO ActivityLog (routine_id, routine_name, changed_by, change_type, change_details)
                     VALUES (@routine_id, @routine_name, @changed_by, @change_type, @change_details)`);
 
 
         // 3. Insert Children
-        
+
         if (reports && reports.length > 0) {
             for (const r of reports) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), r.id)
-                   .input('routine_id', sql.NVarChar(50), routine.id)
-                   .input('report_name', sql.NVarChar(255), r.report_name)
-                   .input('is_optional', sql.Bit, r.is_optional ? 1 : 0)
-                   .query('INSERT INTO Reports (id, routine_id, report_name, is_optional) VALUES (@id, @routine_id, @report_name, @is_optional)');
+                    .input('id', sql.NVarChar(50), r.id)
+                    .input('routine_id', sql.NVarChar(50), routine.id)
+                    .input('report_name', sql.NVarChar(255), r.report_name)
+                    .input('is_optional', sql.Bit, r.is_optional ? 1 : 0)
+                    .query('INSERT INTO Reports (id, routine_id, report_name, is_optional) VALUES (@id, @routine_id, @report_name, @is_optional)');
             }
         }
 
         if (mappings && mappings.length > 0) {
             for (const m of mappings) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), m.id)
-                   .input('report_id', sql.NVarChar(50), m.report_id)
-                   .input('field_mapping_name', sql.NVarChar(255), m.field_mapping_name)
-                   .input('data_type', sql.NVarChar(50), m.data_type)
-                   .input('is_required', sql.Bit, m.is_required ? 1 : 0)
-                   .input('blanks_allowed', sql.NVarChar(20), m.blanks_allowed)
-                   .query('INSERT INTO CDMMappings (id, report_id, field_mapping_name, data_type, is_required, blanks_allowed) VALUES (@id, @report_id, @field_mapping_name, @data_type, @is_required, @blanks_allowed)');
+                    .input('id', sql.NVarChar(50), m.id)
+                    .input('report_id', sql.NVarChar(50), m.report_id)
+                    .input('field_mapping_name', sql.NVarChar(255), m.field_mapping_name)
+                    .input('data_type', sql.NVarChar(50), m.data_type)
+                    .input('is_required', sql.Bit, m.is_required ? 1 : 0)
+                    .input('blanks_allowed', sql.NVarChar(20), m.blanks_allowed)
+                    .query('INSERT INTO CDMMappings (id, report_id, field_mapping_name, data_type, is_required, blanks_allowed) VALUES (@id, @report_id, @field_mapping_name, @data_type, @is_required, @blanks_allowed)');
             }
         }
 
         if (attributes && attributes.length > 0) {
             for (const a of attributes) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), a.id)
-                   .input('cdm_mapping_id', sql.NVarChar(50), a.cdm_mapping_id)
-                   .input('attribute_name', sql.NVarChar(255), a.attribute_name)
-                   .query('INSERT INTO Attributes (id, cdm_mapping_id, attribute_name) VALUES (@id, @cdm_mapping_id, @attribute_name)');
+                    .input('id', sql.NVarChar(50), a.id)
+                    .input('cdm_mapping_id', sql.NVarChar(50), a.cdm_mapping_id)
+                    .input('attribute_name', sql.NVarChar(255), a.attribute_name)
+                    .query('INSERT INTO Attributes (id, cdm_mapping_id, attribute_name) VALUES (@id, @cdm_mapping_id, @attribute_name)');
             }
         }
 
         if (outputSheets && outputSheets.length > 0) {
             for (const s of outputSheets) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), s.id)
-                   .input('routine_id', sql.NVarChar(50), routine.id)
-                   .input('sheet_name', sql.NVarChar(255), s.sheet_name)
-                   .input('order_index', sql.Int, s.order_index || 0)
-                   .query('INSERT INTO OutputSheets (id, routine_id, sheet_name, order_index) VALUES (@id, @routine_id, @sheet_name, @order_index)');
+                    .input('id', sql.NVarChar(50), s.id)
+                    .input('routine_id', sql.NVarChar(50), routine.id)
+                    .input('sheet_name', sql.NVarChar(255), s.sheet_name)
+                    .input('order_index', sql.Int, s.order_index || 0)
+                    .query('INSERT INTO OutputSheets (id, routine_id, sheet_name, order_index) VALUES (@id, @routine_id, @sheet_name, @order_index)');
             }
         }
 
         if (sheetDetails && sheetDetails.length > 0) {
             for (const d of sheetDetails) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), d.id)
-                   .input('output_sheet_id', sql.NVarChar(50), d.output_sheet_id)
-                   .input('field_name', sql.NVarChar(255), d.field_name)
-                   .input('fill_color_format', sql.NVarChar(20), d.fill_color_format)
-                   .input('data_format', sql.NVarChar(50), d.data_format)
-                   .input('column_order', sql.Int, d.column_order)
-                   .input('document_type', sql.NVarChar(100), d.document_type || null)
-                   .input('verification_rde_name', sql.NVarChar(255), d.verification_rde_name || null)
-                   .input('verification_required_status', sql.NVarChar(50), d.verification_required_status || null)
-                   .input('field_description', sql.NVarChar(sql.MAX), d.field_description || null)
-                   .input('verification_data_type', sql.NVarChar(50), d.verification_data_type || null)
-                   .input('old_model_name', sql.NVarChar(100), d.old_model_name || null)
-                   .input('old_model_mapping', sql.NVarChar(255), d.old_model_mapping || null)
-                   .input('new_model_name', sql.NVarChar(100), d.new_model_name || null)
-                   .input('table_name', sql.NVarChar(100), d.table_name || null)
-                   .input('new_model_mapping', sql.NVarChar(255), d.new_model_mapping || null)
-                   .query(`INSERT INTO SheetDetails 
+                    .input('id', sql.NVarChar(50), d.id)
+                    .input('output_sheet_id', sql.NVarChar(50), d.output_sheet_id)
+                    .input('field_name', sql.NVarChar(255), d.field_name)
+                    .input('fill_color_format', sql.NVarChar(20), d.fill_color_format)
+                    .input('data_format', sql.NVarChar(50), d.data_format)
+                    .input('column_order', sql.Int, d.column_order)
+                    .input('document_type', sql.NVarChar(100), d.document_type || null)
+                    .input('verification_rde_name', sql.NVarChar(255), d.verification_rde_name || null)
+                    .input('verification_required_status', sql.NVarChar(50), d.verification_required_status || null)
+                    .input('field_description', sql.NVarChar(sql.MAX), d.field_description || null)
+                    .input('verification_data_type', sql.NVarChar(50), d.verification_data_type || null)
+                    .input('old_model_name', sql.NVarChar(100), d.old_model_name || null)
+                    .input('old_model_mapping', sql.NVarChar(255), d.old_model_mapping || null)
+                    .input('new_model_name', sql.NVarChar(100), d.new_model_name || null)
+                    .input('table_name', sql.NVarChar(100), d.table_name || null)
+                    .input('new_model_mapping', sql.NVarChar(255), d.new_model_mapping || null)
+                    .query(`INSERT INTO SheetDetails 
                     (id, output_sheet_id, field_name, fill_color_format, data_format, column_order, document_type, verification_rde_name, verification_required_status, field_description, verification_data_type, old_model_name, old_model_mapping, new_model_name, table_name, new_model_mapping)
                     VALUES 
                     (@id, @output_sheet_id, @field_name, @fill_color_format, @data_format, @column_order, @document_type, @verification_rde_name, @verification_required_status, @field_description, @verification_data_type, @old_model_name, @old_model_mapping, @new_model_name, @table_name, @new_model_mapping)`);
             }
         }
-        
+
         if (userInputs && userInputs.length > 0) {
             for (const u of userInputs) {
                 await new sql.Request(transaction)
-                   .input('id', sql.NVarChar(50), u.id)
-                   .input('routine_id', sql.NVarChar(50), routine.id)
-                   .input('user_input_name', sql.NVarChar(255), u.user_input_name)
-                   .input('input_location', sql.NVarChar(100), u.input_location)
-                   .input('textbox_type', sql.NVarChar(100), u.textbox_type)
-                   .input('validations', sql.NVarChar(255), u.validations)
-                   .input('min_value', sql.NVarChar(50), u.min_value)
-                   .input('max_value', sql.NVarChar(50), u.max_value)
-                   .input('is_mandatory', sql.Bit, u.is_mandatory ? 1 : 0)
-                   .query(`INSERT INTO UserInputs (id, routine_id, user_input_name, input_location, textbox_type, validations, min_value, max_value, is_mandatory) 
+                    .input('id', sql.NVarChar(50), u.id)
+                    .input('routine_id', sql.NVarChar(50), routine.id)
+                    .input('user_input_name', sql.NVarChar(255), u.user_input_name)
+                    .input('input_location', sql.NVarChar(100), u.input_location)
+                    .input('textbox_type', sql.NVarChar(100), u.textbox_type)
+                    .input('validations', sql.NVarChar(255), u.validations)
+                    .input('min_value', sql.NVarChar(50), u.min_value)
+                    .input('max_value', sql.NVarChar(50), u.max_value)
+                    .input('is_mandatory', sql.Bit, u.is_mandatory ? 1 : 0)
+                    .query(`INSERT INTO UserInputs (id, routine_id, user_input_name, input_location, textbox_type, validations, min_value, max_value, is_mandatory) 
                            VALUES (@id, @routine_id, @user_input_name, @input_location, @textbox_type, @validations, @min_value, @max_value, @is_mandatory)`);
             }
         }
