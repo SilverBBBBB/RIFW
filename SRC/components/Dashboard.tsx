@@ -60,20 +60,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const [localSheets, setLocalSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
   const { hasRole } = useAuth();
 
-  const loadData = () => {
+  const loadData = (currentFilters: RoutineFilters = filters) => {
     // Refresh config to get latest versions
     const currentConfig = dataService.getConfig();
     setAvailableVersions(currentConfig.versions || []);
 
-    setRoutines(dataService.getRoutines(filters));
-    setReports(dataService.getReportsView(filters));
-    setMappings(dataService.getCDMMappingsView(filters));
-    setAttributes(dataService.getAttributeView(filters));
-    const loadedSheets = dataService.getSheetsView(filters);
+    setRoutines(dataService.getRoutines(currentFilters));
+    setReports(dataService.getReportsView(currentFilters));
+    setMappings(dataService.getCDMMappingsView(currentFilters));
+    setAttributes(dataService.getAttributeView(currentFilters));
+    const loadedSheets = dataService.getSheetsView(currentFilters);
     setSheets(loadedSheets);
     setLocalSheets(loadedSheets); // Initial sync for local drag state
-    setSheetDetails(dataService.getSheetDetailsView(filters));
-    setUserInputs(dataService.getUserInputsView(filters));
+    setSheetDetails(dataService.getSheetDetailsView(currentFilters));
+    setUserInputs(dataService.getUserInputsView(currentFilters));
   };
 
   useEffect(() => {
@@ -461,6 +461,72 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                 <Plus size={18} /> Add New Routine
               </button>
             )}
+          </div>
+        </div>
+
+        {/* AI Search Bar */}
+        <div className="mb-6 relative">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Ask AI to filter... (e.g., 'Show me Capital routines in North America active since January')"
+              className="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-all"
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  const query = e.currentTarget.value;
+                  if (!query.trim()) return;
+
+                  const input = e.currentTarget;
+                  const originalPlaceholder = input.placeholder;
+                  input.disabled = true;
+                  input.placeholder = "AI is thinking...";
+
+                  try {
+                    const response = await fetch('/api/ProcessSearch', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ query })
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+
+                      const newFilters = {
+                        ...filters,
+                        version: result.version || filters.version,
+                        startDate: result.startDate || filters.startDate,
+                        endDate: result.endDate || filters.endDate
+                      };
+
+                      // Apply Global Filters
+                      setFilters(newFilters);
+
+                      // Apply Column Filters
+                      if (result.columnFilters) {
+                        setColumnFilters(prev => ({
+                          ...prev,
+                          ...result.columnFilters
+                        }));
+                      }
+
+                      // Trigger data reload with new filters
+                      loadData(newFilters);
+                    }
+                  } catch (error) {
+                    console.error("AI Search failed", error);
+                    alert("AI Search failed. Please try again.");
+                  } finally {
+                    input.disabled = false;
+                    input.placeholder = originalPlaceholder;
+                    input.focus();
+                  }
+                }
+              }
+              }
+            />
+            <div className="absolute left-3 top-3.5 text-purple-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
+            </div>
           </div>
         </div>
 
