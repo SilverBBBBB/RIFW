@@ -65,9 +65,12 @@ export async function ProcessSearch(request: HttpRequest, context: InvocationCon
             jsonBody: filters
         };
 
-    } catch (error) {
+    } catch (error: any) {
         context.log("Error processing AI search:", error);
-        return { status: 500, body: "Internal Server Error processing AI request." };
+        return {
+            status: 500,
+            body: `Internal Server Error processing AI request. Details: ${error.message || error}`
+        };
     }
 }
 
