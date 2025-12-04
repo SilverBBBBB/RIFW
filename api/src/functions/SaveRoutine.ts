@@ -35,14 +35,13 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             const rId = routine.id;
             const req = () => new sql.Request(transaction).input('id', sql.NVarChar(50), rId);
 
-            const [eReports, eMappings, eAttributes, eOutputSheets, eSheetDetails, eUserInputs] = await Promise.all([
-                req().query('SELECT * FROM Reports WHERE routine_id = @id'),
-                req().query('SELECT m.* FROM CDMMappings m JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id'),
-                req().query('SELECT a.* FROM Attributes a JOIN CDMMappings m ON a.cdm_mapping_id = m.id JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id'),
-                req().query('SELECT * FROM OutputSheets WHERE routine_id = @id'),
-                req().query('SELECT d.* FROM SheetDetails d JOIN OutputSheets s ON d.output_sheet_id = s.id WHERE s.routine_id = @id'),
-                req().query('SELECT * FROM UserInputs WHERE routine_id = @id')
-            ]);
+            // Execute queries sequentially because node-mssql transactions do not support parallel queries
+            const eReports = await req().query('SELECT * FROM Reports WHERE routine_id = @id');
+            const eMappings = await req().query('SELECT m.* FROM CDMMappings m JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id');
+            const eAttributes = await req().query('SELECT a.* FROM Attributes a JOIN CDMMappings m ON a.cdm_mapping_id = m.id JOIN Reports r ON m.report_id = r.id WHERE r.routine_id = @id');
+            const eOutputSheets = await req().query('SELECT * FROM OutputSheets WHERE routine_id = @id');
+            const eSheetDetails = await req().query('SELECT d.* FROM SheetDetails d JOIN OutputSheets s ON d.output_sheet_id = s.id WHERE s.routine_id = @id');
+            const eUserInputs = await req().query('SELECT * FROM UserInputs WHERE routine_id = @id');
 
             const oldRoutineObj = existingRoutine.recordset[0];
             // Normalize old routine fields
