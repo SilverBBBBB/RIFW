@@ -1,20 +1,16 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Routine, RoutineFilters, ReportViewRow, CDMMappingViewRow, 
+import {
+  Routine, RoutineFilters, ReportViewRow, CDMMappingViewRow,
   AttributeViewRow, OutputSheet, SheetDetail, UserInputViewRow
 } from '../types.ts';
 import { dataService } from '../services/dataService.ts';
 import ActivityLogTable from './ActivityLogTable';
-import { 
-  Filter, Plus, Edit3, Eye, FileText, Database, Layers, 
+import {
+  Filter, Plus, Edit3, Eye, FileText, Database, Layers,
   Table as TableIcon, X, ArrowUp, ArrowDown, ArrowDownUp, Search, GripVertical, Monitor,
-  PieChart as PieChartIcon, BarChart3, MousePointerClick, Download, History
+  MousePointerClick, Download, History
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
-} from 'recharts';
 import { utils, writeFile } from 'xlsx';
 import { useAuth } from '../hooks/AuthContext';
 
@@ -32,7 +28,7 @@ interface SortConfig {
   direction: SortDirection;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1', '#ec4899', '#14b8a6'];
+
 
 const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, onViewAdditionalDetails }) => {
   const [filters, setFilters] = useState<RoutineFilters>({
@@ -44,7 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const [activeTab, setActiveTab] = useState(0);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-  
+
   // Tracks which header dropdown is currently open
   const [openHeaderKey, setOpenHeaderKey] = useState<string | null>(null);
 
@@ -55,7 +51,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const [sheets, setSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
   const [sheetDetails, setSheetDetails] = useState<(SheetDetail & { sheet_name: string })[]>([]);
   const [userInputs, setUserInputs] = useState<UserInputViewRow[]>([]);
-  
+
   // Dynamic Configuration State
   const [availableVersions, setAvailableVersions] = useState<string[]>([]);
 
@@ -145,36 +141,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   };
 
   // --- Chart Data Preparation ---
-  
-  // 1. By Routine Type
-  const typeData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    routines.forEach(r => {
-      counts[r.routine_type] = (counts[r.routine_type] || 0) + 1;
-    });
-    return Object.keys(counts).map(key => ({ name: key, count: counts[key] }));
-  }, [routines]);
 
 
-
-  // 3. By Group (Bar)
-  const groupData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    routines.forEach(r => {
-      const key = r.routine_group || 'Uncategorized';
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    // Sort by count desc
-    return Object.keys(counts)
-      .map(key => ({ name: key, count: counts[key] }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8); // Top 8 groups
-  }, [routines]);
 
 
 
   // --- Filtering & Sorting Logic ---
-  
+
   const filterValueMatches = (itemValue: any, filterText: string): boolean => {
     if (!filterText) return true;
     if (itemValue === null || itemValue === undefined) return false;
@@ -195,7 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     return [...data].sort((a, b) => {
       const aVal = getSortableValue(a, sortConfig.key);
       const bVal = getSortableValue(b, sortConfig.key);
-      
+
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -285,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   const processedUserInputs = useMemo(() => {
     const filtered = userInputs.filter(ui => {
-       return (
+      return (
         filterValueMatches(ui.routine_name, columnFilters['routine_name']) &&
         filterValueMatches(ui.user_input_name, columnFilters['user_input_name']) &&
         filterValueMatches(ui.input_location, columnFilters['input_location']) &&
@@ -294,7 +267,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
         filterValueMatches(ui.min_value, columnFilters['min_value']) &&
         filterValueMatches(ui.max_value, columnFilters['max_value']) &&
         filterValueMatches(ui.is_mandatory ? 'Yes' : 'No', columnFilters['is_mandatory'])
-       );
+      );
     });
     return applySort(filtered);
   }, [userInputs, columnFilters, sortConfig]);
@@ -328,16 +301,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     const [draggedItem] = newItems.splice(draggedItemIndex, 1);
     newItems.splice(dropIndex, 0, draggedItem);
 
-    const visibleOrderIndices = localSheets.map(s => s.order_index || 0).sort((a,b) => a - b);
-    
+    const visibleOrderIndices = localSheets.map(s => s.order_index || 0).sort((a, b) => a - b);
+
     const itemsToUpdate = newItems.map((item, idx) => ({
-       ...item,
-       order_index: visibleOrderIndices[idx] || (item.order_index || 0)
+      ...item,
+      order_index: visibleOrderIndices[idx] || (item.order_index || 0)
     }));
 
     setLocalSheets(itemsToUpdate);
     setDraggedItemIndex(null);
-    
+
     dataService.updateSheetOrders(itemsToUpdate);
     setTimeout(loadData, 100);
   };
@@ -345,14 +318,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   // --- Excel-style Header Component ---
 
-  const ColumnHeader = ({ 
-    label, 
-    columnKey, 
-    minWidth 
-  }: { 
-    label: string, 
-    columnKey: string, 
-    minWidth?: string 
+  const ColumnHeader = ({
+    label,
+    columnKey,
+    minWidth
+  }: {
+    label: string,
+    columnKey: string,
+    minWidth?: string
   }) => {
     const isOpen = openHeaderKey === columnKey;
     const isFiltered = !!columnFilters[columnKey];
@@ -373,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     }, [isOpen, columnKey]);
 
     return (
-      <th 
+      <th
         className="p-0 border-b border-r border-slate-300 bg-slate-100 relative select-none group"
         style={{ minWidth: minWidth || 'auto' }}
         data-header-key={columnKey}
@@ -381,8 +354,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
         <div className="flex flex-col">
           <div className="flex items-center justify-between p-3 h-full hover:bg-slate-200 transition-colors">
             <span className="text-xs font-bold text-slate-700 uppercase truncate pr-2">{label}</span>
-            
-            <button 
+
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setOpenHeaderKey(isOpen ? null : columnKey);
@@ -396,28 +369,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
           {isOpen && (
             <div className="absolute top-full right-0 mt-0.5 w-64 bg-white rounded shadow-xl border border-slate-200 z-50 animate-in fade-in zoom-in-95 duration-100 text-left font-normal normal-case">
               <div className="p-1 flex flex-col gap-1">
-                <button 
+                <button
                   onClick={() => handleSort(columnKey, 'asc')}
                   className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-blue-50 rounded text-slate-700 ${sortDirection === 'asc' ? 'bg-blue-50 font-medium text-blue-700' : ''}`}
                 >
                   <ArrowUp size={16} className="text-slate-400" /> Sort Ascending
                 </button>
-                <button 
+                <button
                   onClick={() => handleSort(columnKey, 'desc')}
                   className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-blue-50 rounded text-slate-700 ${sortDirection === 'desc' ? 'bg-blue-50 font-medium text-blue-700' : ''}`}
                 >
                   <ArrowDown size={16} className="text-slate-400" /> Sort Descending
                 </button>
               </div>
-              
+
               <div className="border-t border-slate-100 my-1"></div>
-              
+
               <div className="p-3">
                 <div className="text-xs font-semibold text-slate-500 mb-2">Filter</div>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="Search..." 
+                  <input
+                    type="text"
+                    placeholder="Search..."
                     className="w-full border border-slate-300 rounded px-3 py-1.5 pl-8 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     value={columnFilters[columnKey] || ''}
                     onChange={(e) => handleColumnFilterChange(columnKey, e.target.value)}
@@ -425,7 +398,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   />
                   <Search size={14} className="absolute left-2.5 top-2 text-slate-400" />
                   {columnFilters[columnKey] && (
-                    <button 
+                    <button
                       onClick={() => clearColumnFilter(columnKey)}
                       className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
                     >
@@ -439,7 +412,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                 <>
                   <div className="border-t border-slate-100 my-1"></div>
                   <div className="p-1">
-                     <button 
+                    <button
                       onClick={() => {
                         clearColumnFilter(columnKey);
                         if (sortConfig?.key === columnKey) setSortConfig(null);
@@ -473,7 +446,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
           </div>
           <div className="flex gap-3">
             {onViewAdditionalDetails && (
-              <button 
+              <button
                 onClick={onViewAdditionalDetails}
                 className="bg-white border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
               >
@@ -481,7 +454,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
               </button>
             )}
             {hasRole(['admin', 'user']) && (
-              <button 
+              <button
                 onClick={onCreate}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
               >
@@ -494,7 +467,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
         <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="w-full md:w-48">
             <label className="block text-xs font-medium text-slate-500 mb-1">Version</label>
-            <select 
+            <select
               className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={filters.version}
               onChange={(e) => setFilters({ ...filters, version: e.target.value })}
@@ -503,11 +476,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
               {availableVersions.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
-          
+
           <div className="w-full md:w-48">
             <label className="block text-xs font-medium text-slate-500 mb-1">Start Date</label>
-            <input 
-              type="date" 
+            <input
+              type="date"
               className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
@@ -516,22 +489,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
           <div className="w-full md:w-48">
             <label className="block text-xs font-medium text-slate-500 mb-1">End Date</label>
-            <input 
-              type="date" 
+            <input
+              type="date"
               className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             />
           </div>
 
-          <button 
+          <button
             onClick={handleApplyFilters}
             className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors h-10 md:ml-2"
           >
             <Filter size={16} /> Apply Filters
           </button>
 
-          <button 
+          <button
             onClick={handleExport}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors h-10 ml-2"
           >
@@ -541,7 +514,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
       </div>
 
       {/* --- Expanded Visual Stats Section --- */}
-      
+
       {/* 1. Key Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-6">
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
@@ -554,72 +527,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="text-slate-500 text-xs font-medium uppercase mb-2">Active Reports</div>
           <div className="flex items-baseline gap-2">
-             <div className="text-3xl font-bold text-blue-600">{reports.length}</div>
-             <span className="text-xs text-slate-400">Total</span>
+            <div className="text-3xl font-bold text-blue-600">{reports.length}</div>
+            <span className="text-xs text-slate-400">Total</span>
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="text-slate-500 text-xs font-medium uppercase mb-2">Mappings Defined</div>
           <div className="flex items-baseline gap-2">
-             <div className="text-3xl font-bold text-emerald-600">{mappings.length}</div>
-             <span className="text-xs text-slate-400">Fields</span>
+            <div className="text-3xl font-bold text-emerald-600">{mappings.length}</div>
+            <span className="text-xs text-slate-400">Fields</span>
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="text-slate-500 text-xs font-medium uppercase mb-2">Output Sheets</div>
           <div className="flex items-baseline gap-2">
-             <div className="text-3xl font-bold text-purple-600">{sheets.length}</div>
-             <span className="text-xs text-slate-400">Generated</span>
+            <div className="text-3xl font-bold text-purple-600">{sheets.length}</div>
+            <span className="text-xs text-slate-400">Generated</span>
           </div>
         </div>
       </div>
 
-      {/* 2. Charts Grid */}
-      <div className="grid grid-cols-1 gap-6 mb-6">
-        {/* By Type */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-700 flex items-center gap-2">
-              <BarChart3 size={18} className="text-blue-500" /> Routine Types
-            </h3>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={typeData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{fontSize: 11, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <YAxis tick={{fontSize: 11, fill: '#64748b'}} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: '#f1f5f9'}} />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-
-
-        {/* By Group */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-700 flex items-center gap-2">
-               <Layers size={18} className="text-purple-500" /> Top Routine Groups
-            </h3>
-          </div>
-          <div className="h-64 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={groupData} margin={{ left: 30 }}>
-                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                   <XAxis type="number" hide />
-                   <YAxis dataKey="name" type="category" width={120} tick={{fontSize: 11, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: '#f1f5f9'}} />
-                   <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
-                </BarChart>
-             </ResponsiveContainer>
-          </div>
-        </div>
-
-
-      </div>
 
 
       {/* Tabs & Table */}
@@ -630,11 +558,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
             <button
               key={idx}
               onClick={() => setActiveTab(idx)}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
-                activeTab === idx 
-                  ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/50' 
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === idx
+                ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/50'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
             >
               {tab.icon}
               {tab.name}
@@ -677,87 +604,87 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   </tr>
                 ))}
                 {processedRoutines.length === 0 && (
-                   <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No routines found matching filters.</td></tr>
+                  <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No routines found matching filters.</td></tr>
                 )}
               </tbody>
             </table>
           )}
-          
+
           {activeTab === 1 && (
-             <table className="w-full text-left border-collapse">
-               <thead>
-                 <tr>
-                   <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
-                   <ColumnHeader label="Report Name" columnKey="report_name" minWidth="250px" />
-                   <ColumnHeader label="Status" columnKey="status" minWidth="120px" />
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {processedReports.map((row) => (
-                   <tr key={row.id} className="hover:bg-slate-50">
-                     <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
-                     <td className="p-3 text-sm font-medium text-slate-800">{row.report_name}</td>
-                     <td className="p-3 text-sm">
-                        {row.is_optional 
-                          ? <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Optional</span>
-                          : <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Required</span>
-                        }
-                     </td>
-                   </tr>
-                 ))}
-                 {processedReports.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400 italic">No reports found.</td></tr>}
-               </tbody>
-             </table>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr>
+                  <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
+                  <ColumnHeader label="Report Name" columnKey="report_name" minWidth="250px" />
+                  <ColumnHeader label="Status" columnKey="status" minWidth="120px" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {processedReports.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
+                    <td className="p-3 text-sm font-medium text-slate-800">{row.report_name}</td>
+                    <td className="p-3 text-sm">
+                      {row.is_optional
+                        ? <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Optional</span>
+                        : <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Required</span>
+                      }
+                    </td>
+                  </tr>
+                ))}
+                {processedReports.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400 italic">No reports found.</td></tr>}
+              </tbody>
+            </table>
           )}
 
           {activeTab === 2 && (
-             <table className="w-full text-left border-collapse">
-               <thead>
-                 <tr>
-                   <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
-                   <ColumnHeader label="Report" columnKey="report_name" minWidth="200px" />
-                   <ColumnHeader label="Field Mapping Name" columnKey="field_mapping_name" minWidth="200px" />
-                   <ColumnHeader label="Data Type" columnKey="data_type" minWidth="120px" />
-                   <ColumnHeader label="Required" columnKey="is_required" minWidth="100px" />
-                   <ColumnHeader label="Blanks" columnKey="blanks_allowed" minWidth="120px" />
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {processedMappings.map((row) => (
-                   <tr key={row.id} className="hover:bg-slate-50">
-                     <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.report_name}</td>
-                     <td className="p-3 text-sm font-mono text-slate-700">{row.field_mapping_name}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.data_type}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.is_required ? 'Yes' : 'No'}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.blanks_allowed || 'Allowed'}</td>
-                   </tr>
-                 ))}
-                 {processedMappings.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">No mappings found.</td></tr>}
-               </tbody>
-             </table>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr>
+                  <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
+                  <ColumnHeader label="Report" columnKey="report_name" minWidth="200px" />
+                  <ColumnHeader label="Field Mapping Name" columnKey="field_mapping_name" minWidth="200px" />
+                  <ColumnHeader label="Data Type" columnKey="data_type" minWidth="120px" />
+                  <ColumnHeader label="Required" columnKey="is_required" minWidth="100px" />
+                  <ColumnHeader label="Blanks" columnKey="blanks_allowed" minWidth="120px" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {processedMappings.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.report_name}</td>
+                    <td className="p-3 text-sm font-mono text-slate-700">{row.field_mapping_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.data_type}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.is_required ? 'Yes' : 'No'}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.blanks_allowed || 'Allowed'}</td>
+                  </tr>
+                ))}
+                {processedMappings.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">No mappings found.</td></tr>}
+              </tbody>
+            </table>
           )}
 
           {activeTab === 3 && (
-             <table className="w-full text-left border-collapse">
-               <thead>
-                 <tr>
-                   <ColumnHeader label="Report" columnKey="report_name" minWidth="200px" />
-                   <ColumnHeader label="CDM Mapping" columnKey="cdm_mapping_name" minWidth="200px" />
-                   <ColumnHeader label="Attribute Name" columnKey="attribute_name" minWidth="200px" />
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {processedAttributes.map((row) => (
-                   <tr key={row.id} className="hover:bg-slate-50">
-                     <td className="p-3 text-sm text-slate-600">{row.report_name}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.cdm_mapping_name}</td>
-                     <td className="p-3 text-sm font-medium text-slate-800">{row.attribute_name}</td>
-                   </tr>
-                 ))}
-                 {processedAttributes.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400 italic">No attributes found.</td></tr>}
-               </tbody>
-             </table>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr>
+                  <ColumnHeader label="Report" columnKey="report_name" minWidth="200px" />
+                  <ColumnHeader label="CDM Mapping" columnKey="cdm_mapping_name" minWidth="200px" />
+                  <ColumnHeader label="Attribute Name" columnKey="attribute_name" minWidth="200px" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {processedAttributes.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-sm text-slate-600">{row.report_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.cdm_mapping_name}</td>
+                    <td className="p-3 text-sm font-medium text-slate-800">{row.attribute_name}</td>
+                  </tr>
+                ))}
+                {processedAttributes.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400 italic">No attributes found.</td></tr>}
+              </tbody>
+            </table>
           )}
 
           {activeTab === 4 && (
@@ -772,19 +699,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {processedSheets.map((row, idx) => (
-                   <tr 
-                    key={row.id} 
+                  <tr
+                    key={row.id}
                     className="hover:bg-slate-50"
                     draggable
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={() => handleDrop(idx)}
-                   >
-                     <td className="p-3 text-slate-400 cursor-move text-center"><GripVertical size={16} /></td>
-                     <td className="p-3 text-sm text-slate-600 font-mono">{row.order_index}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
-                     <td className="p-3 text-sm font-medium text-slate-800">{row.sheet_name}</td>
-                   </tr>
+                  >
+                    <td className="p-3 text-slate-400 cursor-move text-center"><GripVertical size={16} /></td>
+                    <td className="p-3 text-sm text-slate-600 font-mono">{row.order_index}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
+                    <td className="p-3 text-sm font-medium text-slate-800">{row.sheet_name}</td>
+                  </tr>
                 ))}
                 {processedSheets.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No sheets found.</td></tr>}
               </tbody>
@@ -804,58 +731,58 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {processedSheetDetails.map((row) => (
-                   <tr key={row.id} className="hover:bg-slate-50">
-                     <td className="p-3 text-sm text-slate-600">{row.sheet_name}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.column_order}</td>
-                     <td className="p-3 text-sm font-medium text-slate-800">{row.field_name}</td>
-                     <td className="p-3 text-sm text-slate-600">{row.data_format}</td>
-                     <td className="p-3 text-sm">
-                        <div className="flex items-center gap-2">
-                           <div className="w-4 h-4 rounded border border-slate-300 shadow-sm" style={{backgroundColor: row.fill_color_format}}></div>
-                           <span className="text-slate-500 font-mono text-xs">{row.fill_color_format}</span>
-                        </div>
-                     </td>
-                   </tr>
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-sm text-slate-600">{row.sheet_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.column_order}</td>
+                    <td className="p-3 text-sm font-medium text-slate-800">{row.field_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.data_format}</td>
+                    <td className="p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded border border-slate-300 shadow-sm" style={{ backgroundColor: row.fill_color_format }}></div>
+                        <span className="text-slate-500 font-mono text-xs">{row.fill_color_format}</span>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
                 {processedSheetDetails.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">No RDE details found.</td></tr>}
               </tbody>
             </table>
           )}
-          
+
           {activeTab === 6 && (
             <table className="w-full text-left border-collapse">
-               <thead>
-                  <tr>
-                     <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
-                     <ColumnHeader label="Input Name" columnKey="user_input_name" minWidth="200px" />
-                     <ColumnHeader label="Location" columnKey="input_location" minWidth="150px" />
-                     <ColumnHeader label="Type" columnKey="textbox_type" minWidth="150px" />
-                     <ColumnHeader label="Validations" columnKey="validations" minWidth="200px" />
-                     <ColumnHeader label="Min Value" columnKey="min_value" minWidth="100px" />
-                     <ColumnHeader label="Max Value" columnKey="max_value" minWidth="100px" />
-                     <ColumnHeader label="Mandatory" columnKey="is_mandatory" minWidth="100px" />
+              <thead>
+                <tr>
+                  <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
+                  <ColumnHeader label="Input Name" columnKey="user_input_name" minWidth="200px" />
+                  <ColumnHeader label="Location" columnKey="input_location" minWidth="150px" />
+                  <ColumnHeader label="Type" columnKey="textbox_type" minWidth="150px" />
+                  <ColumnHeader label="Validations" columnKey="validations" minWidth="200px" />
+                  <ColumnHeader label="Min Value" columnKey="min_value" minWidth="100px" />
+                  <ColumnHeader label="Max Value" columnKey="max_value" minWidth="100px" />
+                  <ColumnHeader label="Mandatory" columnKey="is_mandatory" minWidth="100px" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {processedUserInputs.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
+                    <td className="p-3 text-sm font-medium text-slate-800">{row.user_input_name}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.input_location}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.textbox_type}</td>
+                    <td className="p-3 text-sm text-slate-600 max-w-xs truncate" title={row.validations}>{row.validations}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.min_value}</td>
+                    <td className="p-3 text-sm text-slate-600">{row.max_value}</td>
+                    <td className="p-3 text-sm">
+                      {row.is_mandatory
+                        ? <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">Yes</span>
+                        : <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">No</span>
+                      }
+                    </td>
                   </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                  {processedUserInputs.map((row) => (
-                     <tr key={row.id} className="hover:bg-slate-50">
-                        <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
-                        <td className="p-3 text-sm font-medium text-slate-800">{row.user_input_name}</td>
-                        <td className="p-3 text-sm text-slate-600">{row.input_location}</td>
-                        <td className="p-3 text-sm text-slate-600">{row.textbox_type}</td>
-                        <td className="p-3 text-sm text-slate-600 max-w-xs truncate" title={row.validations}>{row.validations}</td>
-                        <td className="p-3 text-sm text-slate-600">{row.min_value}</td>
-                        <td className="p-3 text-sm text-slate-600">{row.max_value}</td>
-                        <td className="p-3 text-sm">
-                           {row.is_mandatory 
-                              ? <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">Yes</span>
-                              : <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">No</span>
-                           }
-                        </td>
-                     </tr>
-                  ))}
-                  {processedUserInputs.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No User Inputs found.</td></tr>}
-               </tbody>
+                ))}
+                {processedUserInputs.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No User Inputs found.</td></tr>}
+              </tbody>
             </table>
           )}
           {activeTab === 7 && (
