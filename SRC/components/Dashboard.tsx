@@ -58,7 +58,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   // Drag and Drop State
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [localSheets, setLocalSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
 
   const loadData = (currentFilters: RoutineFilters = filters) => {
     // Refresh config to get latest versions
@@ -311,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     setLocalSheets(itemsToUpdate);
     setDraggedItemIndex(null);
 
-    dataService.updateSheetOrders(itemsToUpdate);
+    dataService.updateSheetOrders(itemsToUpdate, user.username);
     setTimeout(loadData, 100);
   };
 

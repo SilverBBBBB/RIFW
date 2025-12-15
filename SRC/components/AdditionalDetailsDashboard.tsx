@@ -78,77 +78,77 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
   // Form Logic: Load RDEs when routine changes
   useEffect(() => {
     if (formData.routineId) {
-       const sheets = dataService.getOutputSheetsByRoutineId(formData.routineId);
-       const rdes: RdeOption[] = [];
-       sheets.forEach(sheet => {
-          const sheetDetailsList = dataService.getSheetDetailsBySheetId(sheet.id);
-          sheetDetailsList.forEach(d => {
-             rdes.push({ ...d, sheetName: sheet.sheet_name });
-          });
-       });
-       setAvailableRdes(rdes);
+      const sheets = dataService.getOutputSheetsByRoutineId(formData.routineId);
+      const rdes: RdeOption[] = [];
+      sheets.forEach(sheet => {
+        const sheetDetailsList = dataService.getSheetDetailsBySheetId(sheet.id);
+        sheetDetailsList.forEach(d => {
+          rdes.push({ ...d, sheetName: sheet.sheet_name });
+        });
+      });
+      setAvailableRdes(rdes);
     } else {
-       setAvailableRdes([]);
+      setAvailableRdes([]);
     }
   }, [formData.routineId]);
 
   // Form Logic: Pre-fill when RDE is selected
   useEffect(() => {
     if (formData.rdeId) {
-       const selected = availableRdes.find(r => r.id === formData.rdeId);
-       if (selected) {
-         setFormData(prev => ({
-           ...prev,
-           document_type: selected.document_type || '',
-           verification_rde_name: selected.verification_rde_name || '',
-           verification_required_status: selected.verification_required_status || 'Required',
-           field_description: selected.field_description || '',
-           verification_data_type: selected.verification_data_type || '',
-           old_model_name: selected.old_model_name || '',
-           old_model_mapping: selected.old_model_mapping || '',
-           new_model_name: selected.new_model_name || '',
-           table_name: selected.table_name || '',
-           new_model_mapping: selected.new_model_mapping || ''
-         }));
-       }
+      const selected = availableRdes.find(r => r.id === formData.rdeId);
+      if (selected) {
+        setFormData(prev => ({
+          ...prev,
+          document_type: selected.document_type || '',
+          verification_rde_name: selected.verification_rde_name || '',
+          verification_required_status: selected.verification_required_status || 'Required',
+          field_description: selected.field_description || '',
+          verification_data_type: selected.verification_data_type || '',
+          old_model_name: selected.old_model_name || '',
+          old_model_mapping: selected.old_model_mapping || '',
+          new_model_name: selected.new_model_name || '',
+          table_name: selected.table_name || '',
+          new_model_mapping: selected.new_model_mapping || ''
+        }));
+      }
     }
   }, [formData.rdeId, availableRdes]);
 
   const handleSaveForm = () => {
-     if (!formData.rdeId) {
-       alert("Please select a routine and an RDE.");
-       return;
-     }
-     
-     dataService.updateSheetDetail(formData.rdeId, {
-        document_type: formData.document_type,
-        verification_rde_name: formData.verification_rde_name,
-        verification_required_status: formData.verification_required_status,
-        field_description: formData.field_description,
-        verification_data_type: formData.verification_data_type,
-        old_model_name: formData.old_model_name,
-        old_model_mapping: formData.old_model_mapping,
-        new_model_name: formData.new_model_name,
-        table_name: formData.table_name,
-        new_model_mapping: formData.new_model_mapping
-     });
+    if (!formData.rdeId) {
+      alert("Please select a routine and an RDE.");
+      return;
+    }
 
-     setIsFormOpen(false);
-     setFormData({
-        routineId: '',
-        rdeId: '',
-        document_type: '',
-        verification_rde_name: '',
-        verification_required_status: 'Required',
-        field_description: '',
-        verification_data_type: '',
-        old_model_name: '',
-        old_model_mapping: '',
-        new_model_name: '',
-        table_name: '',
-        new_model_mapping: ''
-     });
-     loadData();
+    dataService.updateSheetDetail(formData.rdeId, {
+      document_type: formData.document_type,
+      verification_rde_name: formData.verification_rde_name,
+      verification_required_status: formData.verification_required_status,
+      field_description: formData.field_description,
+      verification_data_type: formData.verification_data_type,
+      old_model_name: formData.old_model_name,
+      old_model_mapping: formData.old_model_mapping,
+      new_model_name: formData.new_model_name,
+      table_name: formData.table_name,
+      new_model_mapping: formData.new_model_mapping
+    }, user.username);
+
+    setIsFormOpen(false);
+    setFormData({
+      routineId: '',
+      rdeId: '',
+      document_type: '',
+      verification_rde_name: '',
+      verification_required_status: 'Required',
+      field_description: '',
+      verification_data_type: '',
+      old_model_name: '',
+      old_model_mapping: '',
+      new_model_name: '',
+      table_name: '',
+      new_model_mapping: ''
+    });
+    loadData();
   };
 
   // --- Filter & Sort Logic ---
@@ -225,7 +225,7 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
     }, [isOpen, columnKey]);
 
     return (
-      <th 
+      <th
         className="p-0 border-b border-r border-slate-300 bg-slate-100 relative select-none group"
         style={{ minWidth: minWidth || 'auto' }}
         data-header-key={columnKey}
@@ -233,7 +233,7 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
         <div className="flex flex-col">
           <div className="flex items-center justify-between p-3 h-full hover:bg-slate-200 transition-colors">
             <span className="text-xs font-bold text-slate-700 uppercase truncate pr-2">{label}</span>
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setOpenHeaderKey(isOpen ? null : columnKey);
@@ -247,13 +247,13 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
           {isOpen && (
             <div className="absolute top-full right-0 mt-0.5 w-64 bg-white rounded shadow-xl border border-slate-200 z-50 text-left font-normal normal-case">
               <div className="p-1 flex flex-col gap-1">
-                <button 
+                <button
                   onClick={() => handleSort(columnKey, 'asc')}
                   className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-blue-50 rounded text-slate-700 ${sortDirection === 'asc' ? 'bg-blue-50 font-medium text-blue-700' : ''}`}
                 >
                   <ArrowUp size={16} className="text-slate-400" /> Sort Ascending
                 </button>
-                <button 
+                <button
                   onClick={() => handleSort(columnKey, 'desc')}
                   className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-blue-50 rounded text-slate-700 ${sortDirection === 'desc' ? 'bg-blue-50 font-medium text-blue-700' : ''}`}
                 >
@@ -264,9 +264,9 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
               <div className="p-3">
                 <div className="text-xs font-semibold text-slate-500 mb-2">Filter</div>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="Search..." 
+                  <input
+                    type="text"
+                    placeholder="Search..."
                     className="w-full border border-slate-300 rounded px-3 py-1.5 pl-8 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     value={columnFilters[columnKey] || ''}
                     onChange={(e) => setColumnFilters({ ...columnFilters, [columnKey]: e.target.value })}
@@ -274,7 +274,7 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
                   />
                   <Search size={14} className="absolute left-2.5 top-2 text-slate-400" />
                   {columnFilters[columnKey] && (
-                    <button 
+                    <button
                       onClick={() => clearColumnFilter(columnKey)}
                       className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
                     >
@@ -287,7 +287,7 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
                 <>
                   <div className="border-t border-slate-100 my-1"></div>
                   <div className="p-1">
-                     <button 
+                    <button
                       onClick={() => {
                         clearColumnFilter(columnKey);
                         if (sortConfig?.key === columnKey) setSortConfig(null);
@@ -323,22 +323,22 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
             <p className="text-slate-500 text-sm">Manage Verification Station requirements and model mappings.</p>
           </div>
         </div>
-        
+
         <div className="flex gap-3">
           {hasRole('admin') && (
-            <button 
-               onClick={onOpenAdmin}
-               className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            <button
+              onClick={onOpenAdmin}
+              className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
             >
-               <Settings size={18} /> System Admin
+              <Settings size={18} /> System Admin
             </button>
           )}
           {hasRole(['admin', 'user']) && (
-            <button 
-               onClick={() => setIsFormOpen(true)}
-               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
             >
-               <Plus size={18} /> Add / Edit Details
+              <Plus size={18} /> Add / Edit Details
             </button>
           )}
         </div>
@@ -348,48 +348,48 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
         <div className="overflow-x-auto min-h-[500px]">
           <table className="w-full text-left border-collapse">
-             <thead>
-               <tr>
-                 <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
-                 <ColumnHeader label="RDE Name" columnKey="field_name" minWidth="200px" />
-                 <ColumnHeader label="Doc Type" columnKey="document_type" minWidth="150px" />
-                 <ColumnHeader label="Verify Name" columnKey="verification_rde_name" minWidth="150px" />
-                 <ColumnHeader label="Status" columnKey="verification_required_status" minWidth="100px" />
-                 <ColumnHeader label="Description" columnKey="field_description" minWidth="250px" />
-                 <ColumnHeader label="Verify Type" columnKey="verification_data_type" minWidth="120px" />
-                 <ColumnHeader label="Old Model" columnKey="old_model_name" minWidth="150px" />
-                 <ColumnHeader label="Old Mapping" columnKey="old_model_mapping" minWidth="150px" />
-                 <ColumnHeader label="New Model" columnKey="new_model_name" minWidth="150px" />
-                 <ColumnHeader label="Table" columnKey="table_name" minWidth="150px" />
-                 <ColumnHeader label="New Mapping" columnKey="new_model_mapping" minWidth="150px" />
-               </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-               {processedData.map((row) => (
-                 <tr key={row.id} className="hover:bg-slate-50">
-                   <td className="p-3 text-sm text-slate-600 font-medium">{row.routine_name}</td>
-                   <td className="p-3 text-sm text-slate-800">{row.field_name}</td>
-                   <td className="p-3 text-sm text-slate-600">{row.document_type}</td>
-                   <td className="p-3 text-sm text-slate-600">{row.verification_rde_name}</td>
-                   <td className="p-3 text-sm">
-                      {row.verification_required_status === 'Required' 
-                        ? <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">Required</span>
-                        : (row.verification_required_status ? <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded border border-yellow-100">Secondary</span> : '')
-                      }
-                   </td>
-                   <td className="p-3 text-sm text-slate-500 truncate max-w-xs" title={row.field_description}>{row.field_description}</td>
-                   <td className="p-3 text-sm text-slate-600">{row.verification_data_type}</td>
-                   <td className="p-3 text-sm text-slate-500 font-mono text-xs">{row.old_model_name}</td>
-                   <td className="p-3 text-sm text-slate-500 font-mono text-xs">{row.old_model_mapping}</td>
-                   <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.new_model_name}</td>
-                   <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.table_name}</td>
-                   <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.new_model_mapping}</td>
-                 </tr>
-               ))}
-               {processedData.length === 0 && (
-                 <tr><td colSpan={12} className="p-10 text-center text-slate-400 italic">No details found matching filters.</td></tr>
-               )}
-             </tbody>
+            <thead>
+              <tr>
+                <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
+                <ColumnHeader label="RDE Name" columnKey="field_name" minWidth="200px" />
+                <ColumnHeader label="Doc Type" columnKey="document_type" minWidth="150px" />
+                <ColumnHeader label="Verify Name" columnKey="verification_rde_name" minWidth="150px" />
+                <ColumnHeader label="Status" columnKey="verification_required_status" minWidth="100px" />
+                <ColumnHeader label="Description" columnKey="field_description" minWidth="250px" />
+                <ColumnHeader label="Verify Type" columnKey="verification_data_type" minWidth="120px" />
+                <ColumnHeader label="Old Model" columnKey="old_model_name" minWidth="150px" />
+                <ColumnHeader label="Old Mapping" columnKey="old_model_mapping" minWidth="150px" />
+                <ColumnHeader label="New Model" columnKey="new_model_name" minWidth="150px" />
+                <ColumnHeader label="Table" columnKey="table_name" minWidth="150px" />
+                <ColumnHeader label="New Mapping" columnKey="new_model_mapping" minWidth="150px" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {processedData.map((row) => (
+                <tr key={row.id} className="hover:bg-slate-50">
+                  <td className="p-3 text-sm text-slate-600 font-medium">{row.routine_name}</td>
+                  <td className="p-3 text-sm text-slate-800">{row.field_name}</td>
+                  <td className="p-3 text-sm text-slate-600">{row.document_type}</td>
+                  <td className="p-3 text-sm text-slate-600">{row.verification_rde_name}</td>
+                  <td className="p-3 text-sm">
+                    {row.verification_required_status === 'Required'
+                      ? <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">Required</span>
+                      : (row.verification_required_status ? <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded border border-yellow-100">Secondary</span> : '')
+                    }
+                  </td>
+                  <td className="p-3 text-sm text-slate-500 truncate max-w-xs" title={row.field_description}>{row.field_description}</td>
+                  <td className="p-3 text-sm text-slate-600">{row.verification_data_type}</td>
+                  <td className="p-3 text-sm text-slate-500 font-mono text-xs">{row.old_model_name}</td>
+                  <td className="p-3 text-sm text-slate-500 font-mono text-xs">{row.old_model_mapping}</td>
+                  <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.new_model_name}</td>
+                  <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.table_name}</td>
+                  <td className="p-3 text-sm text-blue-600 font-mono text-xs">{row.new_model_mapping}</td>
+                </tr>
+              ))}
+              {processedData.length === 0 && (
+                <tr><td colSpan={12} className="p-10 text-center text-slate-400 italic">No details found matching filters.</td></tr>
+              )}
+            </tbody>
           </table>
         </div>
       </div>
@@ -402,150 +402,150 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
               <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><FileText className="text-blue-600" /> Edit Verification Details</h3>
               <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* Selection Section */}
-                 <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 mb-2">
-                    <h4 className="text-sm font-bold text-blue-800 mb-3">1. Select RDE to Edit</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Routine</label>
-                          <select 
-                            className="w-full border border-blue-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
-                            value={formData.routineId}
-                            onChange={(e) => setFormData({...formData, routineId: e.target.value, rdeId: ''})}
-                          >
-                             <option value="">Select Routine...</option>
-                             {routines.map(r => <option key={r.id} value={r.id}>{r.routine_name}</option>)}
-                          </select>
-                       </div>
-                       <div>
-                          <label className="block text-xs font-bold text-slate-500 mb-1">Sheet & RDE Field</label>
-                          <select 
-                            className="w-full border border-blue-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
-                            value={formData.rdeId}
-                            onChange={(e) => setFormData({...formData, rdeId: e.target.value})}
-                            disabled={!formData.routineId}
-                          >
-                             <option value="">Select Field...</option>
-                             {availableRdes.map(r => (
-                               <option key={r.id} value={r.id}>{r.sheetName} - {r.field_name}</option>
-                             ))}
-                          </select>
-                       </div>
+                {/* Selection Section */}
+                <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 mb-2">
+                  <h4 className="text-sm font-bold text-blue-800 mb-3">1. Select RDE to Edit</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Routine</label>
+                      <select
+                        className="w-full border border-blue-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        value={formData.routineId}
+                        onChange={(e) => setFormData({ ...formData, routineId: e.target.value, rdeId: '' })}
+                      >
+                        <option value="">Select Routine...</option>
+                        {routines.map(r => <option key={r.id} value={r.id}>{r.routine_name}</option>)}
+                      </select>
                     </div>
-                 </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Sheet & RDE Field</label>
+                      <select
+                        className="w-full border border-blue-200 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        value={formData.rdeId}
+                        onChange={(e) => setFormData({ ...formData, rdeId: e.target.value })}
+                        disabled={!formData.routineId}
+                      >
+                        <option value="">Select Field...</option>
+                        {availableRdes.map(r => (
+                          <option key={r.id} value={r.id}>{r.sheetName} - {r.field_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
 
-                 {/* Details Form */}
-                 <div className="md:col-span-2">
-                    <h4 className="text-sm font-bold text-slate-800 mb-3 pb-1 border-b border-slate-100">2. Verification Data</h4>
-                 </div>
+                {/* Details Form */}
+                <div className="md:col-span-2">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 pb-1 border-b border-slate-100">2. Verification Data</h4>
+                </div>
 
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Document Type</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                       value={formData.document_type}
-                       onChange={(e) => setFormData({...formData, document_type: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Verification Name</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                       value={formData.verification_rde_name}
-                       onChange={(e) => setFormData({...formData, verification_rde_name: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Required Status</label>
-                    <select 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                       value={formData.verification_required_status}
-                       onChange={(e) => setFormData({...formData, verification_required_status: e.target.value})}
-                    >
-                       <option value="Required">Required</option>
-                       <option value="Secondary">Secondary</option>
-                    </select>
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Verification Data Type</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                       value={formData.verification_data_type}
-                       onChange={(e) => setFormData({...formData, verification_data_type: e.target.value})}
-                    />
-                 </div>
-                 <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Description</label>
-                    <textarea 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm h-20"
-                       value={formData.field_description}
-                       onChange={(e) => setFormData({...formData, field_description: e.target.value})}
-                    />
-                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Document Type</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                    value={formData.document_type}
+                    onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Verification Name</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                    value={formData.verification_rde_name}
+                    onChange={(e) => setFormData({ ...formData, verification_rde_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Required Status</label>
+                  <select
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                    value={formData.verification_required_status}
+                    onChange={(e) => setFormData({ ...formData, verification_required_status: e.target.value })}
+                  >
+                    <option value="Required">Required</option>
+                    <option value="Secondary">Secondary</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Verification Data Type</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                    value={formData.verification_data_type}
+                    onChange={(e) => setFormData({ ...formData, verification_data_type: e.target.value })}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Description</label>
+                  <textarea
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm h-20"
+                    value={formData.field_description}
+                    onChange={(e) => setFormData({ ...formData, field_description: e.target.value })}
+                  />
+                </div>
 
-                 <div className="md:col-span-2 pt-2">
-                    <h4 className="text-sm font-bold text-slate-800 mb-3 pb-1 border-b border-slate-100">3. Model Mapping</h4>
-                 </div>
-                 
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Old Model Name</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
-                       value={formData.old_model_name}
-                       onChange={(e) => setFormData({...formData, old_model_name: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Old Model Mapping</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
-                       value={formData.old_model_mapping}
-                       onChange={(e) => setFormData({...formData, old_model_mapping: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">New Model Name</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
-                       value={formData.new_model_name}
-                       onChange={(e) => setFormData({...formData, new_model_name: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">New Model Mapping</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
-                       value={formData.new_model_mapping}
-                       onChange={(e) => setFormData({...formData, new_model_mapping: e.target.value})}
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Table Name</label>
-                    <input 
-                       className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
-                       value={formData.table_name}
-                       onChange={(e) => setFormData({...formData, table_name: e.target.value})}
-                    />
-                 </div>
+                <div className="md:col-span-2 pt-2">
+                  <h4 className="text-sm font-bold text-slate-800 mb-3 pb-1 border-b border-slate-100">3. Model Mapping</h4>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Old Model Name</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
+                    value={formData.old_model_name}
+                    onChange={(e) => setFormData({ ...formData, old_model_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Old Model Mapping</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
+                    value={formData.old_model_mapping}
+                    onChange={(e) => setFormData({ ...formData, old_model_mapping: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">New Model Name</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
+                    value={formData.new_model_name}
+                    onChange={(e) => setFormData({ ...formData, new_model_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">New Model Mapping</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
+                    value={formData.new_model_mapping}
+                    onChange={(e) => setFormData({ ...formData, new_model_mapping: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Table Name</label>
+                  <input
+                    className="w-full border border-slate-300 rounded-md p-2 text-sm font-mono bg-slate-50"
+                    value={formData.table_name}
+                    onChange={(e) => setFormData({ ...formData, table_name: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="p-5 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-xl">
-               <button 
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-white border border-transparent hover:border-slate-300 rounded-lg text-sm font-medium transition-colors"
-               >
-                  Cancel
-               </button>
-               <button 
-                  onClick={handleSaveForm}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
-               >
-                  <Save size={16} /> Save Details
-               </button>
+              <button
+                onClick={() => setIsFormOpen(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-white border border-transparent hover:border-slate-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveForm}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Save size={16} /> Save Details
+              </button>
             </div>
           </div>
         </div>

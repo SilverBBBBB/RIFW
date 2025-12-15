@@ -1,8 +1,8 @@
-import { 
+import {
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, ActivityLog,
   RoutineFilters, AppConfiguration, ConfigCategory
 } from '../types';
-import { 
+import {
   MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS,
   VERSIONS, ROUTINE_TYPES, FUND_TYPES, REGIONS, CAPITAL_STRUCTURES, DATA_TYPES, PREDEFINED_REPORTS, HELPER_ROUTINES_LIST
 } from '../constants';
@@ -31,7 +31,7 @@ class DataService {
     helperRoutines: []
   };
 
-  constructor() {}
+  constructor() { }
 
   // --- API INTEGRATION ---
 
@@ -41,9 +41,9 @@ class DataService {
     try {
       const response = await fetch('/api/data');
       if (!response.ok) throw new Error('Failed to fetch data');
-      
+
       const data = await response.json();
-      
+
       this.routines = data.routines;
       this.reports = data.reports;
       this.cdmMappings = data.cdmMappings;
@@ -148,20 +148,20 @@ class DataService {
     const userInputs = this.userInputs.filter(u => u.routine_id === routineId);
 
     const payload = {
-        routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, username
+      routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, username
     };
 
     try {
-        const response = await fetch('/api/routine', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error('API save failed');
+      const response = await fetch('/api/routine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('API save failed');
     } catch (e) {
-        console.error("Failed to save to API, falling back to local storage", e);
-        this.useApi = false; // Switch to offline mode
-        this.saveToLocalStorage();
+      console.error("Failed to save to API, falling back to local storage", e);
+      this.useApi = false; // Switch to offline mode
+      this.saveToLocalStorage();
     }
   }
 
@@ -173,16 +173,16 @@ class DataService {
 
   updateConfig(category: ConfigCategory, newValues: string[]): void {
     this.config[category] = newValues;
-    
+
     if (this.useApi) {
       fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, values: newValues })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, values: newValues })
       }).catch(e => {
-         console.warn("Failed to save config to API", e);
-         this.useApi = false;
-         this.saveToLocalStorage();
+        console.warn("Failed to save config to API", e);
+        this.useApi = false;
+        this.saveToLocalStorage();
       });
     } else {
       this.saveToLocalStorage();
@@ -283,11 +283,11 @@ class DataService {
   getSheetDetailsBySheetId(sheetId: string): SheetDetail[] {
     return this.sheetDetails.filter(sd => sd.output_sheet_id === sheetId);
   }
-  
+
   getUserInputsByRoutineId(routineId: string): UserInput[] {
     return this.userInputs.filter(ui => ui.routine_id === routineId);
   }
-  
+
   getActivityLogs(): ActivityLog[] {
     return this.activityLogs;
   }
@@ -312,8 +312,8 @@ class DataService {
       .filter(m => reportIds.includes(m.report_id))
       .map(m => {
         const report = reports.find(r => r.id === m.report_id);
-        return { 
-          ...m, 
+        return {
+          ...m,
           report_name: report?.report_name || 'Unknown',
           routine_name: report?.routine_name || 'Unknown'
         };
@@ -353,8 +353,8 @@ class DataService {
       .filter(sd => sheetIds.includes(sd.output_sheet_id))
       .map(sd => {
         const sheet = sheets.find(s => s.id === sd.output_sheet_id);
-        return { 
-          ...sd, 
+        return {
+          ...sd,
           sheet_name: sheet?.sheet_name || 'Unknown',
           routine_name: sheet?.routine_name || 'Unknown'
         };
@@ -375,9 +375,9 @@ class DataService {
   // --- WRITE ---
 
   saveRoutine(
-    routine: Routine, 
-    reports: Report[], 
-    mappings: CDMMapping[], 
+    routine: Routine,
+    reports: Report[],
+    mappings: CDMMapping[],
     attributes: Attribute[],
     outputSheets: OutputSheet[],
     sheetDetails: SheetDetail[],
@@ -397,7 +397,7 @@ class DataService {
     // Update in-memory state
     const currentReportIds = this.reports.filter(r => r.routine_id === routine.id).map(r => r.id);
     const currentMappingIds = this.cdmMappings.filter(m => currentReportIds.includes(m.report_id)).map(m => m.id);
-    
+
     this.reports = this.reports.filter(r => r.routine_id !== routine.id);
     this.cdmMappings = this.cdmMappings.filter(m => !currentReportIds.includes(m.report_id));
     this.attributes = this.attributes.filter(a => !currentMappingIds.includes(a.cdm_mapping_id));
@@ -405,16 +405,16 @@ class DataService {
     const currentSheetIds = this.outputSheets.filter(s => s.routine_id === routine.id).map(s => s.id);
     let maxOrder = this.outputSheets.reduce((max, s) => Math.max(max, s.order_index || 0), 0);
     const finalOutputSheets = outputSheets.map(s => {
-       if (s.order_index === undefined || s.order_index === 0) {
-         maxOrder++;
-         return { ...s, order_index: maxOrder };
-       }
-       return s;
+      if (s.order_index === undefined || s.order_index === 0) {
+        maxOrder++;
+        return { ...s, order_index: maxOrder };
+      }
+      return s;
     });
 
     this.outputSheets = this.outputSheets.filter(s => s.routine_id !== routine.id);
     this.sheetDetails = this.sheetDetails.filter(sd => !currentSheetIds.includes(sd.output_sheet_id));
-    
+
     this.userInputs = this.userInputs.filter(ui => ui.routine_id !== routine.id);
 
     this.reports.push(...reports);
@@ -427,7 +427,7 @@ class DataService {
     // Persist to Backend or Local Storage
     this.saveToApi(routine.id, username);
   }
-  
+
   deleteRoutine(id: string): void {
     // Optimistic UI update
     const reportIds = this.reports.filter(r => r.routine_id === id).map(r => r.id);
@@ -451,19 +451,19 @@ class DataService {
     }
   }
 
-  updateSheetDetail(id: string, updates: Partial<SheetDetail>): void {
+  updateSheetDetail(id: string, updates: Partial<SheetDetail>, username: string): void {
     const idx = this.sheetDetails.findIndex(sd => sd.id === id);
     if (idx !== -1) {
       this.sheetDetails[idx] = { ...this.sheetDetails[idx], ...updates };
       // Save full routine to ensure consistency
       const sheet = this.outputSheets.find(s => s.id === this.sheetDetails[idx].output_sheet_id);
       if (sheet) {
-        this.saveToApi(sheet.routine_id);
+        this.saveToApi(sheet.routine_id, username);
       }
     }
   }
 
-  updateSheetOrders(orderedSheets: OutputSheet[]) {
+  updateSheetOrders(orderedSheets: OutputSheet[], username: string) {
     const updateMap = new Map(orderedSheets.map(s => [s.id, s.order_index]));
     this.outputSheets = this.outputSheets.map(sheet => {
       if (updateMap.has(sheet.id)) {
@@ -474,11 +474,11 @@ class DataService {
     // Trigger save for each affected routine (inefficient but safe) or bulk update
     // For now, just save one if user only drags sheets of one routine
     const routineId = orderedSheets[0]?.routine_id;
-    if (routineId) this.saveToApi(routineId);
+    if (routineId) this.saveToApi(routineId, username);
   }
 
   // Deep copy a routine to a new version
-  createNewVersion(originalRoutineId: string, newVersion: string): Routine | null {
+  createNewVersion(originalRoutineId: string, newVersion: string, username: string): Routine | null {
     const original = this.getRoutineById(originalRoutineId);
     if (!original) return null;
 
@@ -516,16 +516,16 @@ class DataService {
     const originalSheets = this.getOutputSheetsByRoutineId(originalRoutineId);
     const newSheets: OutputSheet[] = [];
     const newSheetDetails: SheetDetail[] = [];
-    
+
     let maxOrder = this.outputSheets.reduce((max, s) => Math.max(max, s.order_index || 0), 0);
 
     originalSheets.forEach(sheet => {
       const newSheetId = generateId();
       maxOrder++;
-      newSheets.push({ 
-        ...sheet, 
-        id: newSheetId, 
-        routine_id: newRoutineId, 
+      newSheets.push({
+        ...sheet,
+        id: newSheetId,
+        routine_id: newRoutineId,
         order_index: maxOrder
       });
 
@@ -550,7 +550,7 @@ class DataService {
     this.sheetDetails.push(...newSheetDetails);
     this.userInputs.push(...newUserInputs);
 
-    this.saveToApi(newRoutine.id);
+    this.saveToApi(newRoutine.id, username);
 
     return newRoutine;
   }

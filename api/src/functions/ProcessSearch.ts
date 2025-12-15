@@ -23,7 +23,7 @@ export async function ProcessSearch(request: HttpRequest, context: InvocationCon
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
         You are an AI assistant for a dashboard. Your goal is to convert a natural language user query into a structured JSON object representing filters.

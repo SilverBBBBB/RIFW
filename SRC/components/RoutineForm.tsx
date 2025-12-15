@@ -230,7 +230,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   const handleSaveAsNewVersion = () => {
     if (!newVersionName) return alert("Please select a version");
     if (routine.id) {
-      dataService.createNewVersion(routine.id, newVersionName);
+      dataService.createNewVersion(routine.id, newVersionName, user.username);
       setVersionModalOpen(false);
       onSave(user.username);
     }
