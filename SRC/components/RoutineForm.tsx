@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, AppConfiguration, UserInput
 } from '../types.ts';
@@ -66,6 +66,21 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [highlightErrorFields, setHighlightErrorFields] = useState<string[]>([]);
   const [regionDropdownOpen, setRegionDropdownOpen] = useState(false);
+  const regionRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (regionRef.current && !regionRef.current.contains(event.target as Node)) {
+        setRegionDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Load Config and Initial Data
   useEffect(() => {
@@ -591,7 +606,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Region <span className="text-red-500">*</span></label>
-              <div className="relative">
+              <div className="relative" ref={regionRef}>
                 <button
                   type="button"
                   onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
@@ -602,7 +617,9 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
                       ? routine.region.join(', ')
                       : 'Select Region'}
                   </span>
-                  <ChevronDown size={16} className="text-slate-500" />
+                  <svg className="h-5 w-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
                 </button>
 
                 {regionDropdownOpen && (
