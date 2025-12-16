@@ -589,40 +589,42 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
                 {config.capitalStructures.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Region <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
-                className={`w-full text-left border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none flex justify-between items-center ${highlightErrorFields.includes('region') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
-              >
-                <span className="truncate">
-                  {routine.region && routine.region.length > 0
-                    ? routine.region.join(', ')
-                    : 'Select Region'}
-                </span>
-                <ChevronDown size={16} className="text-slate-500" />
-              </button>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Region <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setRegionDropdownOpen(!regionDropdownOpen)}
+                  className={`w-full text-left border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none flex justify-between items-center bg-white ${highlightErrorFields.includes('region') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
+                >
+                  <span className="truncate">
+                    {routine.region && routine.region.length > 0
+                      ? routine.region.join(', ')
+                      : 'Select Region'}
+                  </span>
+                  <ChevronDown size={16} className="text-slate-500" />
+                </button>
 
-              {regionDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {config.regions.filter(r => r !== 'All').map(r => (
-                    <label key={r} className="flex items-center px-4 py-2 hover:bg-slate-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={routine.region?.includes(r)}
-                        onChange={(e) => {
-                          const current = routine.region || [];
-                          if (e.target.checked) setRoutine({ ...routine, region: [...current, r] });
-                          else setRoutine({ ...routine, region: current.filter(x => x !== r) });
-                        }}
-                        className="mr-2 rounded text-blue-600 focus:ring-blue-500"
-                      />
-                      {r}
-                    </label>
-                  ))}
-                </div>
-              )}
+                {regionDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    {config.regions.filter(r => r !== 'All').map(r => (
+                      <label key={r} className="flex items-center px-4 py-2 hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={routine.region?.includes(r)}
+                          onChange={(e) => {
+                            const current = routine.region || [];
+                            if (e.target.checked) setRoutine({ ...routine, region: [...current, r] });
+                            else setRoutine({ ...routine, region: current.filter(x => x !== r) });
+                          }}
+                          className="mr-2 rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        {r}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className={`md:col-span-2 p-2 rounded-md border ${highlightErrorFields.includes('fund_types') ? 'border-red-300 bg-red-50' : 'border-transparent'}`}>
               <label className="block text-sm font-medium text-slate-700 mb-1">Fund Types <span className="text-red-500">*</span></label>
