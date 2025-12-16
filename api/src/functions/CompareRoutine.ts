@@ -15,7 +15,7 @@ export function compareRoutines(oldRoutine: any, newRoutine: any) {
     // 1. Compare Top-Level Fields
     const topLevelKeys = [
         'routine_name', 'routine_display_name', 'version', 'routine_group',
-        'routine_type', 'capital_structure', 'region', 'to_show', 'display_in_dropdown'
+        'routine_type', 'capital_structure', 'to_show', 'display_in_dropdown'
     ];
 
     // Also compare JSON fields that are stored as strings/objects at top level
@@ -35,6 +35,7 @@ export function compareRoutines(oldRoutine: any, newRoutine: any) {
     };
     compareSimpleArrays('fund_types');
     compareSimpleArrays('helper_routines');
+    compareSimpleArrays('region');
 
 
     // 2. Compare Child Arrays (Reports, Mappings, etc.)

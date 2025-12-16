@@ -46,6 +46,8 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             const oldRoutineObj = existingRoutine.recordset[0];
             // Normalize old routine fields
             oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
+            oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
+            oldRoutineObj.region = oldRoutineObj.region ? JSON.parse(oldRoutineObj.region) : [];
             oldRoutineObj.helper_routines = oldRoutineObj.helper_routines ? JSON.parse(oldRoutineObj.helper_routines) : [];
             oldRoutineObj.is_active = !!oldRoutineObj.is_active;
 
@@ -80,7 +82,8 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             .input('routine_type', sql.NVarChar(100), routine.routine_type)
             .input('fund_types', sql.NVarChar(sql.MAX), JSON.stringify(routine.fund_types || []))
             .input('capital_structure', sql.NVarChar(100), routine.capital_structure)
-            .input('region', sql.NVarChar(100), routine.region)
+            .input('capital_structure', sql.NVarChar(100), routine.capital_structure)
+            .input('region', sql.NVarChar(sql.MAX), JSON.stringify(routine.region || []))
             .input('helper_routines', sql.NVarChar(sql.MAX), JSON.stringify(routine.helper_routines || []))
             .input('to_show', sql.NVarChar(10), routine.to_show)
             .input('display_in_dropdown', sql.NVarChar(10), routine.display_in_dropdown)
