@@ -36,7 +36,7 @@ export const VERSIONS = ['v1.0', 'v1.1', 'v1.2', 'prod v1.2', 'v2.0', 'v2.1', 'v
 
 export const ROUTINE_TYPES = ['Capital', 'Investment', 'Financial Reporting', 'Investments'];
 export const FUND_TYPES = ['Equity', 'Fixed Income', 'Multi-Asset', 'Real Estate', 'Private Equity', 'Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'];
-export const REGIONS = ['North America', 'EMEA', 'APAC', 'Global', 'All'];
+export const REGIONS = ['North America', 'EMEA', 'APAC', 'Global'];
 export const CAPITAL_STRUCTURES = ['Open-Ended', 'Closed-Ended', 'Transfer Agent', 'N/A'];
 export const DATA_TYPES = ['String', 'Integer', 'Decimal', 'Fixed Decimal', 'Date', 'Boolean'];
 
@@ -122,7 +122,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: ['Security IDs', 'Unmatched Holdings'],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -137,7 +137,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -152,7 +152,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -167,7 +167,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -182,7 +182,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: ['Unmatched Transactions'],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -197,7 +197,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'No'
@@ -212,7 +212,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -227,7 +227,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -242,7 +242,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'Yes',
     display_in_dropdown: 'Yes'
@@ -257,7 +257,7 @@ export const MOCK_ROUTINES: Routine[] = [
     routine_type: 'Investments',
     fund_types: ['Hedge Fund', 'Mutual Fund', 'CIT', 'CAS'],
     capital_structure: 'N/A',
-    region: 'All',
+    region: ['All'],
     helper_routines: [],
     to_show: 'No',
     display_in_dropdown: 'No'
@@ -311,7 +311,7 @@ export const MOCK_CDM_MAPPINGS: CDMMapping[] = [
   { id: 'cm_05', report_id: 'rep_npd_opt', field_mapping_name: 'ClientSource', data_type: 'String', is_required: true, blanks_allowed: 'Allowed' },
   { id: 'cm_06', report_id: 'rep_npd_opt', field_mapping_name: 'ExpirationDateBloomberg', data_type: 'Date', is_required: true, blanks_allowed: 'NotAllowed' },
   { id: 'cm_07', report_id: 'rep_npd_opt', field_mapping_name: 'TickerBloomberg', data_type: 'String', is_required: true, blanks_allowed: 'NotAllowed' },
-  
+
   // NPD Pricing Report
   { id: 'cm_08', report_id: 'rep_npd_price', field_mapping_name: 'ClientFXRate', data_type: 'Fixed Decimal', is_required: true, blanks_allowed: 'NotAllowed' },
   { id: 'cm_09', report_id: 'rep_npd_price', field_mapping_name: 'ClientMarketValue', data_type: 'Fixed Decimal', is_required: true, blanks_allowed: 'NotAllowed' },
@@ -319,7 +319,7 @@ export const MOCK_CDM_MAPPINGS: CDMMapping[] = [
   { id: 'cm_11', report_id: 'rep_npd_price', field_mapping_name: 'CUSIP', data_type: 'String', is_required: false, blanks_allowed: 'Allowed' },
   { id: 'cm_12', report_id: 'rep_npd_price', field_mapping_name: 'ISIN', data_type: 'String', is_required: false, blanks_allowed: 'Allowed' },
   { id: 'cm_13', report_id: 'rep_npd_price', field_mapping_name: 'NPDHighPrice(local)', data_type: 'Fixed Decimal', is_required: true, blanks_allowed: 'NotAllowed' },
-  
+
   // Period-end Schedule of Investments
   { id: 'cm_14', report_id: 'rep_per_end', field_mapping_name: 'SecurityType', data_type: 'String', is_required: true, blanks_allowed: 'NotAllowed' },
   { id: 'cm_15', report_id: 'rep_per_end', field_mapping_name: 'SecurityCurrency', data_type: 'String', is_required: true, blanks_allowed: 'NotAllowed' },
@@ -372,14 +372,14 @@ export const MOCK_SHEET_DETAILS: SheetDetail[] = [
   { id: 'sd_ev_1', output_sheet_id: 'os_ev_1', field_name: 'Total Assets', fill_color_format: '#FFFFFF', data_format: 'Currency', column_order: 1 },
   { id: 'sd_ev_2', output_sheet_id: 'os_ev_1', field_name: 'Variance', fill_color_format: '#FFCCCC', data_format: 'Percentage', column_order: 2 },
   { id: 'sd_ev_3', output_sheet_id: 'os_ev_2', field_name: 'Security Name', fill_color_format: '#FFFFFF', data_format: 'String', column_order: 1 },
-  
+
   // Existence and Value Testing RDEs with MOCK Verification Station Data
-  { 
-    id: 'sd_ev_3_1', 
-    output_sheet_id: 'os_ev_3', 
-    field_name: 'SECURITY TYPE', 
-    fill_color_format: '#00338D', 
-    data_format: 'General', 
+  {
+    id: 'sd_ev_3_1',
+    output_sheet_id: 'os_ev_3',
+    field_name: 'SECURITY TYPE',
+    fill_color_format: '#00338D',
+    data_format: 'General',
     column_order: 1,
     // Mock Verification Data
     document_type: 'Broker Statement',
@@ -393,12 +393,12 @@ export const MOCK_SHEET_DETAILS: SheetDetail[] = [
     table_name: 'tbl_securities',
     new_model_mapping: 'security_type_id'
   },
-  { 
-    id: 'sd_ev_3_2', 
-    output_sheet_id: 'os_ev_3', 
-    field_name: 'SECURITY CURRENCY', 
-    fill_color_format: '#00338D', 
-    data_format: 'Text', 
+  {
+    id: 'sd_ev_3_2',
+    output_sheet_id: 'os_ev_3',
+    field_name: 'SECURITY CURRENCY',
+    fill_color_format: '#00338D',
+    data_format: 'Text',
     column_order: 2,
     document_type: 'Broker Statement',
     verification_rde_name: 'Currency',

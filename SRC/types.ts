@@ -17,7 +17,7 @@ export interface Routine {
   routine_type: string;
   fund_types: string[];
   capital_structure: string;
-  region: string;
+  region: string[];
   helper_routines: string[];
   to_show?: string; // 'Yes' | 'No'
   display_in_dropdown?: string; // 'Yes' | 'No'
@@ -62,7 +62,7 @@ export interface SheetDetail {
   fill_color_format: string;
   data_format: string;
   column_order: number;
-  
+
   // Verification Station / Additional Details
   document_type?: string;
   verification_rde_name?: string;
