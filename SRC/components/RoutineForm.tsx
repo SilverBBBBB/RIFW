@@ -512,7 +512,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       </div>
 
       {/* Section 1: Core Info */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible mb-4">
         <button
           onClick={() => toggleSection('core')}
           className="w-full flex items-center justify-between p-5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
