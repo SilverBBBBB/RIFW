@@ -157,6 +157,9 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
 
   if (!config) return <div>Loading configuration...</div>;
 
+  const showFundTypes = ['Investment', 'Financial Reporting'].includes(routine.routine_type || '');
+  const showCapitalStructure = routine.routine_type === 'Capital';
+
   const handleSave = () => {
     const errors: string[] = [];
     const errorFields: string[] = [];
@@ -186,9 +189,14 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       errors.push("Display in Dropdown");
       errorFields.push("display_in_dropdown");
     }
-    if (!routine.fund_types || routine.fund_types.length === 0) {
+    if (showFundTypes && (!routine.fund_types || routine.fund_types.length === 0)) {
       errors.push("Fund Types");
       errorFields.push("fund_types");
+    }
+
+    if (showCapitalStructure && !routine.capital_structure) {
+      errors.push("Capital Structure");
+      errorFields.push("capital_structure");
     }
     if (!routine.region || routine.region.length === 0) {
       errors.push("Region");
@@ -598,17 +606,19 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
                 <option value="No">No</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Capital Structure</label>
-              <select
-                className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                value={routine.capital_structure}
-                onChange={e => setRoutine({ ...routine, capital_structure: e.target.value })}
-              >
-                <option value="">Select Structure</option>
-                {config.capitalStructures.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+            {showCapitalStructure && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Capital Structure <span className="text-red-500">*</span></label>
+                <select
+                  className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${highlightErrorFields.includes('capital_structure') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
+                  value={routine.capital_structure}
+                  onChange={e => setRoutine({ ...routine, capital_structure: e.target.value })}
+                >
+                  <option value="">Select Structure</option>
+                  {config.capitalStructures.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Region <span className="text-red-500">*</span></label>
               <div className="relative" ref={regionRef}>
@@ -648,45 +658,47 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
                 )}
               </div>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fund Types <span className="text-red-500">*</span></label>
-              <div className="relative" ref={fundTypeRef}>
-                <button
-                  type="button"
-                  onClick={() => setFundTypeDropdownOpen(!fundTypeDropdownOpen)}
-                  className={`w-full text-left border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none flex justify-between items-center bg-white ${highlightErrorFields.includes('fund_types') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
-                >
-                  <span className="truncate">
-                    {routine.fund_types && routine.fund_types.length > 0
-                      ? routine.fund_types.join(', ')
-                      : 'Select Fund Types'}
-                  </span>
-                  <svg className="h-5 w-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                  </svg>
-                </button>
+            {showFundTypes && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fund Types <span className="text-red-500">*</span></label>
+                <div className="relative" ref={fundTypeRef}>
+                  <button
+                    type="button"
+                    onClick={() => setFundTypeDropdownOpen(!fundTypeDropdownOpen)}
+                    className={`w-full text-left border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none flex justify-between items-center bg-white ${highlightErrorFields.includes('fund_types') ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
+                  >
+                    <span className="truncate">
+                      {routine.fund_types && routine.fund_types.length > 0
+                        ? routine.fund_types.join(', ')
+                        : 'Select Fund Types'}
+                    </span>
+                    <svg className="h-5 w-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </button>
 
-                {fundTypeDropdownOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                    {config.fundTypes.map(ft => (
-                      <label key={ft} className="flex items-center px-4 py-2 hover:bg-slate-50 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={routine.fund_types?.includes(ft)}
-                          onChange={(e) => {
-                            const current = routine.fund_types || [];
-                            if (e.target.checked) setRoutine({ ...routine, fund_types: [...current, ft] });
-                            else setRoutine({ ...routine, fund_types: current.filter(x => x !== ft) });
-                          }}
-                          className="mr-2 rounded text-blue-600 focus:ring-blue-500"
-                        />
-                        {ft}
-                      </label>
-                    ))}
-                  </div>
-                )}
+                  {fundTypeDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {config.fundTypes.map(ft => (
+                        <label key={ft} className="flex items-center px-4 py-2 hover:bg-slate-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={routine.fund_types?.includes(ft)}
+                            onChange={(e) => {
+                              const current = routine.fund_types || [];
+                              if (e.target.checked) setRoutine({ ...routine, fund_types: [...current, ft] });
+                              else setRoutine({ ...routine, fund_types: current.filter(x => x !== ft) });
+                            }}
+                            className="mr-2 rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          {ft}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
