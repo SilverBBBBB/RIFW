@@ -82,7 +82,7 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             .input('routine_type', sql.NVarChar(100), routine.routine_type)
             .input('fund_types', sql.NVarChar(sql.MAX), JSON.stringify(routine.fund_types || []))
             .input('capital_structure', sql.NVarChar(100), routine.capital_structure)
-            .input('capital_structure', sql.NVarChar(100), routine.capital_structure)
+
             .input('region', sql.NVarChar(sql.MAX), JSON.stringify(routine.region || []))
             .input('helper_routines', sql.NVarChar(sql.MAX), JSON.stringify(routine.helper_routines || []))
             .input('to_show', sql.NVarChar(10), routine.to_show)
