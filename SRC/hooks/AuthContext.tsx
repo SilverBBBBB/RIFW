@@ -24,6 +24,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
+    } else if (import.meta.env.DEV) {
+      // Auto-login as admin in development mode
+      const devAdmin: User = { username: 'DevAdmin', role: 'admin' };
+      setUser(devAdmin);
+      setToken('dev-token');
+      sessionStorage.setItem('user', JSON.stringify(devAdmin));
+      sessionStorage.setItem('token', 'dev-token');
     } else {
       setUser({ username: 'Guest', role: 'guest' });
     }
@@ -57,9 +64,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (username, password) => {
     const response = await fetch('/api/Register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
     });
 
     if (response.ok) {

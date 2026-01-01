@@ -589,6 +589,41 @@ class DataService {
 
     return newRoutine;
   }
+
+  // --- BULK IMPORT ---
+
+  async importRoutines(data: {
+    routines: any[];
+    reports: any[];
+    mappings: any[];
+    attributes: any[];
+    outputSheets: any[];
+    sheetDetails: any[];
+    userInputs: any[];
+  }, username: string): Promise<void> {
+    if (!this.useApi) {
+      throw new Error('Bulk import requires API connection');
+    }
+
+    const response = await fetch('/api/routines/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, username })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Import failed');
+    }
+
+    // Refresh data from API after successful import
+    this.isInitialized = false;
+    await this.initialize();
+  }
+
+  private generateId(): string {
+    return Math.random().toString(36).substring(2, 10);
+  }
 }
 
 export const dataService = new DataService();

@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../services/dataService.ts';
 import { AppConfiguration, ConfigCategory } from '../types.ts';
-import { ArrowLeft, Plus, Settings, AlertCircle, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, AlertCircle, X, ArrowUp, ArrowDown, FileSpreadsheet } from 'lucide-react';
 import UserManagement from './UserManagement';
 import DefaultMappingModal from './DefaultMappingModal';
+import BulkImportModal from './BulkImportModal';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -14,6 +15,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   const [config, setConfig] = useState<AppConfiguration | null>(null);
   const [newInputs, setNewInputs] = useState<Record<string, string>>({});
   const [editingDefaultsReport, setEditingDefaultsReport] = useState<string | null>(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   useEffect(() => {
     setConfig(dataService.getConfig());
@@ -86,6 +88,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           onClose={() => setEditingDefaultsReport(null)}
         />
       )}
+      {showBulkImport && (
+        <BulkImportModal
+          onClose={() => setShowBulkImport(false)}
+          onImportComplete={() => setConfig(dataService.getConfig())}
+        />
+      )}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
@@ -100,6 +108,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
             </p>
           </div>
         </div>
+        <button
+          onClick={() => setShowBulkImport(true)}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+        >
+          <FileSpreadsheet size={18} />
+          Bulk Import
+        </button>
       </div>
 
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-8 flex items-start gap-3">
