@@ -46,7 +46,6 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             const oldRoutineObj = existingRoutine.recordset[0];
             // Normalize old routine fields
             oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
-            oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
             oldRoutineObj.region = oldRoutineObj.region ? JSON.parse(oldRoutineObj.region) : [];
             oldRoutineObj.helper_routines = oldRoutineObj.helper_routines ? JSON.parse(oldRoutineObj.helper_routines) : [];
             oldRoutineObj.is_active = !!oldRoutineObj.is_active;
@@ -200,7 +199,7 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
     } catch (err: any) {
         if (transaction) await transaction.rollback();
         context.error(err);
-        return { status: 500, body: "Error saving routine: " + err.message };
+        return { status: 500, jsonBody: { error: "Error saving routine: " + err.message } };
     }
 }
 

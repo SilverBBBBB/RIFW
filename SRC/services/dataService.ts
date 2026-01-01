@@ -20,6 +20,7 @@ class DataService {
 
   private isInitialized = false;
   private useApi = true;
+  public initError: string | null = null;
 
   private config: AppConfiguration = {
     versions: [],
@@ -38,10 +39,11 @@ class DataService {
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
+    this.initError = null;
 
     try {
       const response = await fetch('/api/data');
-      if (!response.ok) throw new Error('Failed to fetch data');
+      if (!response.ok) throw new Error('Failed to fetch data from server');
 
       const data = await response.json();
 
@@ -58,11 +60,25 @@ class DataService {
       this.useApi = true;
 
       this.isInitialized = true;
-    } catch (e) {
-      console.warn("API connection failed, falling back to local storage/mock data");
+    } catch (e: any) {
+      console.warn("API connection failed:", e.message);
+
+      // In production, don't fall back to mock data - throw error
+      if (!import.meta.env.DEV) {
+        this.initError = e.message || 'Failed to connect to database';
+        throw new Error(this.initError);
+      }
+
+      // In development, fall back to local storage/mock data
       this.useApi = false;
       this.fallbackToLocalOrMock();
     }
+  }
+
+  // Reset initialization state to allow retrying
+  reset(): void {
+    this.isInitialized = false;
+    this.initError = null;
   }
 
   private fallbackToLocalOrMock() {
