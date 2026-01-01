@@ -7,18 +7,19 @@ export async function getData(request: HttpRequest, context: InvocationContext):
 
     try {
         const pool = await getPool();
-        
+
         // Fetch all data in parallel for performance
         const [
-            rRoutines, 
-            rReports, 
-            rMappings, 
-            rAttributes, 
-            rSheets, 
-            rDetails, 
-            rUserInputs, 
+            rRoutines,
+            rReports,
+            rMappings,
+            rAttributes,
+            rSheets,
+            rDetails,
+            rUserInputs,
             rConfig,
-            rActivityLogs
+            rActivityLogs,
+            rDefaultMappings
         ] = await Promise.all([
             pool.request().query('SELECT * FROM Routines'),
             pool.request().query('SELECT * FROM Reports'),
@@ -28,15 +29,16 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             pool.request().query('SELECT * FROM SheetDetails'),
             pool.request().query('SELECT * FROM UserInputs'),
             pool.request().query('SELECT * FROM AppConfig'),
-            pool.request().query('SELECT * FROM ActivityLog')
+            pool.request().query('SELECT * FROM ActivityLog'),
+            pool.request().query('SELECT * FROM DefaultReportMappings')
         ]);
 
         // Process Config into object
         const configObj: Record<string, string[]> = {
-            versions: [], routineTypes: [], fundTypes: [], regions: [], 
+            versions: [], routineTypes: [], fundTypes: [], regions: [],
             capitalStructures: [], dataTypes: [], reportNames: [], helperRoutines: []
         };
-        
+
         rConfig.recordset.forEach((row: any) => {
             if (configObj[row.category]) {
                 configObj[row.category].push(row.value);
@@ -50,7 +52,7 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             helper_routines: r.helper_routines ? JSON.parse(r.helper_routines) : [],
             is_active: !!r.is_active
         }));
-        
+
         return {
             status: 200,
             jsonBody: {
@@ -62,7 +64,8 @@ export async function getData(request: HttpRequest, context: InvocationContext):
                 sheetDetails: rDetails.recordset,
                 userInputs: rUserInputs.recordset.map((u: any) => ({ ...u, is_mandatory: !!u.is_mandatory })),
                 config: configObj,
-                activityLogs: rActivityLogs.recordset
+                activityLogs: rActivityLogs.recordset,
+                defaultMappings: rDefaultMappings.recordset.map((m: any) => ({ ...m, is_required: !!m.is_required }))
             }
         };
     } catch (err: any) {

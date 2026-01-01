@@ -312,8 +312,25 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
 
   const updateReport = (index: number, field: keyof Report, value: any) => {
     const updated = [...reports];
+    const oldReportName = updated[index].report_name;
     updated[index] = { ...updated[index], [field]: value };
     setReports(updated);
+
+    // Auto-populate mappings if report name changed
+    if (field === 'report_name' && value && value !== oldReportName) {
+      const defaults = dataService.getDefaultMappings(value);
+      if (defaults && defaults.length > 0) {
+        const newMappings: CDMMapping[] = defaults.map(d => ({
+          id: Math.random().toString(36).substring(2),
+          report_id: updated[index].id,
+          field_mapping_name: d.field_mapping_name,
+          data_type: d.data_type,
+          is_required: d.is_required,
+          blanks_allowed: d.blanks_allowed
+        }));
+        setMappings(prev => [...prev, ...newMappings]);
+      }
+    }
   };
 
   const removeReport = (reportId: string) => {

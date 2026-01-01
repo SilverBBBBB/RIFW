@@ -150,3 +150,12 @@ export interface ActivityLog {
 
 
 export type ConfigCategory = keyof AppConfiguration;
+
+export interface DefaultMapping {
+  id: string;
+  report_name: string;
+  field_mapping_name: string;
+  data_type: string;
+  is_required: boolean;
+  blanks_allowed: string;
+}

@@ -1,6 +1,6 @@
 import {
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, ActivityLog,
-  RoutineFilters, AppConfiguration, ConfigCategory
+  RoutineFilters, AppConfiguration, ConfigCategory, DefaultMapping
 } from '../types';
 import {
   MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS,
@@ -16,6 +16,7 @@ class DataService {
   private sheetDetails: SheetDetail[] = [];
   private userInputs: UserInput[] = [];
   private activityLogs: ActivityLog[] = [];
+  private defaultMappings: DefaultMapping[] = [];
 
   private isInitialized = false;
   private useApi = true;
@@ -52,6 +53,7 @@ class DataService {
       this.sheetDetails = data.sheetDetails;
       this.userInputs = data.userInputs || [];
       this.activityLogs = data.activityLogs || [];
+      this.defaultMappings = data.defaultMappings || [];
       this.config = data.config;
       this.useApi = true;
 
@@ -76,6 +78,7 @@ class DataService {
         this.sheetDetails = data.sheetDetails || [];
         this.userInputs = data.userInputs || [];
         this.activityLogs = data.activityLogs || [];
+        this.defaultMappings = data.defaultMappings || [];
         this.config = data.config || this.getDefaultConfig();
       } catch (e) {
         console.error("Failed to parse local storage data", e);
@@ -96,6 +99,7 @@ class DataService {
     this.sheetDetails = [...MOCK_SHEET_DETAILS];
     this.userInputs = [...MOCK_USER_INPUTS];
     this.activityLogs = [];
+    this.defaultMappings = [];
     this.config = this.getDefaultConfig();
   }
 
@@ -122,6 +126,7 @@ class DataService {
       sheetDetails: this.sheetDetails,
       userInputs: this.userInputs,
       activityLogs: this.activityLogs,
+      defaultMappings: this.defaultMappings,
       config: this.config
     };
     localStorage.setItem('amap_data', JSON.stringify(data));
@@ -199,6 +204,36 @@ class DataService {
   removeConfigOption(category: ConfigCategory, value: string): void {
     const newValues = this.config[category].filter(item => item !== value);
     this.updateConfig(category, newValues);
+  }
+
+  // --- DEFAULT MAPPINGS ---
+
+  getDefaultMappings(reportName?: string): DefaultMapping[] {
+    if (reportName) {
+      return this.defaultMappings.filter(m => m.report_name === reportName);
+    }
+    return this.defaultMappings;
+  }
+
+  async saveDefaultMappings(reportName: string, mappings: DefaultMapping[], username: string): Promise<void> {
+    // Update local state
+    this.defaultMappings = this.defaultMappings.filter(m => m.report_name !== reportName);
+    this.defaultMappings.push(...mappings);
+
+    if (this.useApi) {
+      try {
+        await fetch('/api/saveDefaultMappings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report_name: reportName, mappings, username })
+        });
+      } catch (e) {
+        console.error("Failed to save default mappings to API", e);
+        this.saveToLocalStorage();
+      }
+    } else {
+      this.saveToLocalStorage();
+    }
   }
 
   // --- READ ---
