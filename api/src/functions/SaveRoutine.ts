@@ -42,12 +42,26 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
             const eOutputSheets = await req().query('SELECT * FROM OutputSheets WHERE routine_id = @id');
             const eSheetDetails = await req().query('SELECT d.* FROM SheetDetails d JOIN OutputSheets s ON d.output_sheet_id = s.id WHERE s.routine_id = @id');
             const eUserInputs = await req().query('SELECT * FROM UserInputs WHERE routine_id = @id');
+            const eDefaultMappings = await req().query('SELECT * FROM DefaultReportMappings WHERE report_name IN (SELECT report_name FROM Reports WHERE routine_id = @id)'); // Not strictly needed for comparison but good for consistency if added later
 
             const oldRoutineObj = existingRoutine.recordset[0];
+
+            // Robust JSON parsing helper
+            const safeParseArray = (val: any) => {
+                if (!val) return [];
+                try {
+                    const parsed = JSON.parse(val);
+                    return Array.isArray(parsed) ? parsed : [val];
+                } catch (e) {
+                    // Not valid JSON, return as single-item array
+                    return [val];
+                }
+            };
+
             // Normalize old routine fields
-            oldRoutineObj.fund_types = oldRoutineObj.fund_types ? JSON.parse(oldRoutineObj.fund_types) : [];
-            oldRoutineObj.region = oldRoutineObj.region ? JSON.parse(oldRoutineObj.region) : [];
-            oldRoutineObj.helper_routines = oldRoutineObj.helper_routines ? JSON.parse(oldRoutineObj.helper_routines) : [];
+            oldRoutineObj.fund_types = safeParseArray(oldRoutineObj.fund_types);
+            oldRoutineObj.region = safeParseArray(oldRoutineObj.region);
+            oldRoutineObj.helper_routines = safeParseArray(oldRoutineObj.helper_routines);
             oldRoutineObj.is_active = !!oldRoutineObj.is_active;
 
             const existingData = {

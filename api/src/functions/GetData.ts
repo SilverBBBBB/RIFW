@@ -46,10 +46,21 @@ export async function getData(request: HttpRequest, context: InvocationContext):
         });
 
         // Parse JSON fields in Routines
+        const safeParseArray = (val: any) => {
+            if (!val) return [];
+            try {
+                const parsed = JSON.parse(val);
+                return Array.isArray(parsed) ? parsed : [val];
+            } catch (e) {
+                return [val];
+            }
+        };
+
         const routines = rRoutines.recordset.map((r: any) => ({
             ...r,
-            fund_types: r.fund_types ? JSON.parse(r.fund_types) : [],
-            helper_routines: r.helper_routines ? JSON.parse(r.helper_routines) : [],
+            fund_types: safeParseArray(r.fund_types),
+            region: safeParseArray(r.region),
+            helper_routines: safeParseArray(r.helper_routines),
             is_active: !!r.is_active
         }));
 
