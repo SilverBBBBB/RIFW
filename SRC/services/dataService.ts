@@ -516,16 +516,25 @@ class DataService {
 
   updateSheetOrders(orderedSheets: OutputSheet[], username: string) {
     const updateMap = new Map(orderedSheets.map(s => [s.id, s.order_index]));
+
+    // Update local state
     this.outputSheets = this.outputSheets.map(sheet => {
       if (updateMap.has(sheet.id)) {
         return { ...sheet, order_index: updateMap.get(sheet.id)! };
       }
       return sheet;
     });
-    // Trigger save for each affected routine (inefficient but safe) or bulk update
-    // For now, just save one if user only drags sheets of one routine
-    const routineId = orderedSheets[0]?.routine_id;
-    if (routineId) this.saveToApi(routineId, username);
+
+    // Identify all affected routines
+    const affectedRoutineIds = new Set<string>();
+    orderedSheets.forEach(s => {
+      if (s.routine_id) affectedRoutineIds.add(s.routine_id);
+    });
+
+    // Save each affected routine
+    affectedRoutineIds.forEach(routineId => {
+      this.saveToApi(routineId, username);
+    });
   }
 
   // Deep copy a routine to a new version

@@ -297,21 +297,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const handleDrop = (dropIndex: number) => {
     if (draggedItemIndex === null || draggedItemIndex === dropIndex) return;
 
+    // Create a copy of the current list
     const newItems = [...localSheets];
+    // Remove the dragged item
     const [draggedItem] = newItems.splice(draggedItemIndex, 1);
+    // Insert it at the new position
     newItems.splice(dropIndex, 0, draggedItem);
 
-    const visibleOrderIndices = localSheets.map(s => s.order_index || 0).sort((a, b) => a - b);
-
+    // Re-index ALL items strictly from 1 to N based on their new visual order
     const itemsToUpdate = newItems.map((item, idx) => ({
       ...item,
-      order_index: visibleOrderIndices[idx] || (item.order_index || 0)
+      order_index: idx + 1
     }));
 
     setLocalSheets(itemsToUpdate);
     setDraggedItemIndex(null);
 
+    // Persist the new order
     dataService.updateSheetOrders(itemsToUpdate, user.username);
+    
+    // Reload to reflect changes (with a slight delay to allow API to process if needed)
     setTimeout(loadData, 100);
   };
 
