@@ -66,6 +66,29 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Apply database migrations
+        id: migrate_attempt_1
+        continue-on-error: true
+        uses: azure/sql-action@v2.3
+        with:
+          connection-string: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+          path: ./migrations/*.sql
+      - name: Wait for Azure SQL to resume
+        if: steps.migrate_attempt_1.outcome == 'failure'
+        run: sleep 30
+      - name: Retry database migrations
+        id: migrate_attempt_2
+        if: steps.migrate_attempt_1.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/sql-action@v2.3
+        with:
+          connection-string: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+          path: ./migrations/*.sql
+      - name: Wait before final migration attempt
+        if: steps.migrate_attempt_2.outcome == 'failure'
+        run: sleep 60
+      - name: Final database migration attempt
+        id: migrate_attempt_3
+        if: steps.migrate_attempt_2.outcome == 'failure'
         uses: azure/sql-action@v2.3
         with:
           connection-string: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
