@@ -18,7 +18,7 @@ const AppContent: React.FC = () => {
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { hasRole } = useAuth();
+  const { hasRole, user, token, isAuthReady } = useAuth();
 
   const initializeData = async () => {
     setIsLoading(true);
@@ -35,8 +35,13 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
-    initializeData();
-  }, []);
+    if (isAuthReady && token && user && user.role !== 'guest') {
+      initializeData();
+    } else if (isAuthReady) {
+      setIsLoading(false);
+      setLoadError(null);
+    }
+  }, [isAuthReady, token]);
 
   const navigateToDashboard = () => {
     setCurrentView('dashboard');
@@ -69,12 +74,24 @@ const AppContent: React.FC = () => {
     setCurrentView('admin');
   };
 
-  if (isLoading) {
+  if (!isAuthReady || isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-slate-500 font-medium">Loading Routine Info for Workflow...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token || !user || user.role === 'guest') {
+    return (
+      <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
+        <Header />
+        <div className="max-w-xl mx-auto mt-20 bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Authentication Required</h2>
+          <p className="text-slate-600">Sign in with an account created by a system administrator.</p>
         </div>
       </div>
     );

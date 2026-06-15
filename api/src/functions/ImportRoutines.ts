@@ -1,13 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool, sql } from '../shared/sql';
+import { authenticate, isAuthResponse } from '../shared/auth';
+import { randomUUID } from 'crypto';
 
 // Generate a random UUID-like string
 function generateId(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    return randomUUID();
 }
 
 interface ImportPayload {
@@ -18,7 +16,6 @@ interface ImportPayload {
     outputSheets: any[];
     sheetDetails: any[];
     userInputs: any[];
-    username: string;
 }
 
 interface ValidationError {
@@ -28,6 +25,8 @@ interface ValidationError {
 }
 
 export async function importRoutines(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const auth = await authenticate(request, ['Admin'], context);
+    if (isAuthResponse(auth)) return auth;
     let body: ImportPayload;
     try {
         body = await request.json() as ImportPayload;
@@ -35,10 +34,14 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
         return { status: 400, body: "Invalid JSON payload" };
     }
 
-    const { routines, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, username } = body;
+    const { routines, reports, mappings, attributes, outputSheets, sheetDetails, userInputs } = body;
 
     if (!routines || !Array.isArray(routines) || routines.length === 0) {
         return { status: 400, body: "No routines provided in the payload" };
+    }
+    const collections = [routines, reports || [], mappings || [], attributes || [], outputSheets || [], sheetDetails || [], userInputs || []];
+    if (collections.some(items => !Array.isArray(items) || items.length > 10000)) {
+        return { status: 413, body: "Import exceeds the maximum of 10,000 rows per sheet." };
     }
 
     // Validation
@@ -56,6 +59,28 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
         if (!r['Region'] && !r.region) {
             validationErrors.push({ routine_ref_id: refId, field: 'Region', message: 'Region is required' });
         }
+    });
+    const refIds = routines.map(r => String(r['Ref_ID'] || r.Ref_ID || ''));
+    refIds.forEach((id, index) => {
+        if (!id || refIds.indexOf(id) !== index) {
+            validationErrors.push({ routine_ref_id: id || 'Unknown', field: 'Ref_ID', message: 'Ref_ID values must be present and unique.' });
+        }
+    });
+
+    const reportKeys = new Set((reports || []).map(rep => `${String(rep['Routine_Ref_ID'] || rep.Routine_Ref_ID)}|${rep['Report Name'] || rep.report_name}`));
+    const mappingKeys = new Set((mappings || []).map(map => `${String(map['Routine_Ref_ID'] || map.Routine_Ref_ID)}|${map['Report Name'] || map.report_name}|${map['Field Name'] || map.field_mapping_name}`));
+    const sheetKeys = new Set((outputSheets || []).map(sheet => `${String(sheet['Routine_Ref_ID'] || sheet.Routine_Ref_ID)}|${sheet['Sheet Name'] || sheet.sheet_name}`));
+    (mappings || []).forEach((map, idx) => {
+        const key = `${String(map['Routine_Ref_ID'] || map.Routine_Ref_ID)}|${map['Report Name'] || map.report_name}`;
+        if (!reportKeys.has(key)) validationErrors.push({ routine_ref_id: map['Routine_Ref_ID'] || 'Unknown', field: 'Report Name', message: `CDM Mappings row ${idx + 1} references a missing report.` });
+    });
+    (attributes || []).forEach((attribute, idx) => {
+        const key = `${String(attribute['Routine_Ref_ID'] || attribute.Routine_Ref_ID)}|${attribute['Report Name'] || attribute.report_name}|${attribute['CDM Field Name'] || attribute.cdm_field_name}`;
+        if (!mappingKeys.has(key)) validationErrors.push({ routine_ref_id: attribute['Routine_Ref_ID'] || 'Unknown', field: 'CDM Field Name', message: `Attributes row ${idx + 1} references a missing mapping.` });
+    });
+    (sheetDetails || []).forEach((detail, idx) => {
+        const key = `${String(detail['Routine_Ref_ID'] || detail.Routine_Ref_ID)}|${detail['Sheet Name'] || detail.sheet_name}`;
+        if (!sheetKeys.has(key)) validationErrors.push({ routine_ref_id: detail['Routine_Ref_ID'] || 'Unknown', field: 'Sheet Name', message: `Sheet Details row ${idx + 1} references a missing output sheet.` });
     });
 
     // Bot readiness validation for sheet details
@@ -290,7 +315,7 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
         await new sql.Request(transaction)
             .input('routine_id', sql.NVarChar(50), null) // Bulk import touches multiple routines
             .input('routine_name', sql.NVarChar(255), `Bulk Import (${routines.length} routines)`)
-            .input('changed_by', sql.NVarChar(255), username)
+            .input('changed_by', sql.NVarChar(255), auth.username)
             .input('change_type', sql.NVarChar(50), 'Bulk Import')
             .input('change_details', sql.NVarChar(sql.MAX), JSON.stringify({
                 imported_count: routines.length,
@@ -310,12 +335,12 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
             }
         };
 
-    } catch (err: any) {
+    } catch (err) {
         if (transaction) await transaction.rollback();
         context.error(err);
         return {
             status: 500,
-            body: "Error importing routines: " + err.message
+            jsonBody: { error: 'Error importing routines.' }
         };
     }
 }

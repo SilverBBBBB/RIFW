@@ -1,14 +1,17 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool } from '../shared/sql';
+import { authenticate, isAuthResponse } from '../shared/auth';
 
 export async function saveDefaultMappings(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Saving DefaultReportMappings...');
+    const auth = await authenticate(request, ['Admin'], context);
+    if (isAuthResponse(auth)) return auth;
 
     try {
         const body: any = await request.json();
-        const { report_name, mappings, username } = body;
+        const { report_name, mappings } = body;
 
-        if (!report_name) {
+        if (typeof report_name !== 'string' || !report_name.trim() || report_name.length > 255 || !Array.isArray(mappings) || mappings.length > 2000) {
             return { status: 400, body: "Missing report_name" };
         }
 
@@ -56,9 +59,9 @@ export async function saveDefaultMappings(request: HttpRequest, context: Invocat
             throw err;
         }
 
-    } catch (err: any) {
+    } catch (err) {
         context.error(err);
-        return { status: 500, body: "Error saving default mappings: " + err.message };
+        return { status: 500, jsonBody: { error: 'Error saving default mappings.' } };
     }
 }
 

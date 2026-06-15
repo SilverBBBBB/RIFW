@@ -2,9 +2,9 @@
 export type UserRole = 'admin' | 'user' | 'guest';
 
 export interface User {
+  id?: number;
   username: string;
   role: UserRole;
-  password?: string;
 }
 
 export interface Routine {
@@ -24,6 +24,7 @@ export interface Routine {
   // Additional fields from "FM_-_Routine_Selection.csv" implied by spec
   is_active?: boolean;
   business_owner?: string;
+  row_version?: string;
 }
 
 export interface Report {
@@ -139,7 +140,7 @@ export interface AppConfiguration {
 
 export interface ActivityLog {
   id: number;
-  routine_id: string;
+  routine_id: string | null;
   routine_name: string;
   changed_by: string;
   change_type: string;

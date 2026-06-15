@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { X, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { useAuth } from '../hooks/AuthContext';
 
 interface BulkImportModalProps {
     onClose: () => void;
@@ -113,7 +111,6 @@ interface ValidationError {
 }
 
 const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImportComplete }) => {
-    const { user } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [parsedData, setParsedData] = useState<ParsedData | null>(null);
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
@@ -121,82 +118,70 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImportComp
     const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [importMessage, setImportMessage] = useState('');
 
-    const downloadTemplate = () => {
-        const wb = XLSX.utils.book_new();
+    const downloadTemplate = async () => {
+        const { default: ExcelJS } = await import('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const instructions = workbook.addWorksheet('Instructions');
+        INSTRUCTIONS_CONTENT.forEach(row => instructions.addRow(row));
+        instructions.getColumn(1).width = 100;
 
-        // Create Instructions sheet first
-        const instructionsWs = XLSX.utils.aoa_to_sheet(INSTRUCTIONS_CONTENT);
-        instructionsWs['!cols'] = [{ wch: 100 }];
-        XLSX.utils.book_append_sheet(wb, instructionsWs, 'Instructions');
-
-        // Create data sheets
         Object.entries(TEMPLATE_HEADERS).forEach(([sheetName, headers]) => {
-            const ws = XLSX.utils.aoa_to_sheet([headers]);
-            // Set column widths
-            ws['!cols'] = headers.map(() => ({ wch: 20 }));
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            const worksheet = workbook.addWorksheet(sheetName);
+            worksheet.addRow(headers);
+            worksheet.getRow(1).font = { bold: true };
+            worksheet.columns.forEach(column => { column.width = 20; });
         });
 
-        // Download
-        XLSX.writeFile(wb, 'routine_import_template.xlsx');
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'routine_import_template.xlsx';
+        anchor.click();
+        URL.revokeObjectURL(url);
     };
 
-    const parseExcelFile = (file: File) => {
+    const parseExcelFile = async (file: File) => {
         setIsLoading(true);
         setValidationErrors([]);
         setImportStatus('idle');
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
-
-                const parsed: ParsedData = {
-                    routines: [],
-                    reports: [],
-                    mappings: [],
-                    attributes: [],
-                    outputSheets: [],
-                    sheetDetails: [],
-                    userInputs: []
-                };
-
-                // Parse each sheet
-                if (workbook.SheetNames.includes('Routines')) {
-                    parsed.routines = XLSX.utils.sheet_to_json(workbook.Sheets['Routines']);
-                }
-                if (workbook.SheetNames.includes('Reports')) {
-                    parsed.reports = XLSX.utils.sheet_to_json(workbook.Sheets['Reports']);
-                }
-                if (workbook.SheetNames.includes('CDM_Mappings')) {
-                    parsed.mappings = XLSX.utils.sheet_to_json(workbook.Sheets['CDM_Mappings']);
-                }
-                if (workbook.SheetNames.includes('Attributes')) {
-                    parsed.attributes = XLSX.utils.sheet_to_json(workbook.Sheets['Attributes']);
-                }
-                if (workbook.SheetNames.includes('Output_Sheets')) {
-                    parsed.outputSheets = XLSX.utils.sheet_to_json(workbook.Sheets['Output_Sheets']);
-                }
-                if (workbook.SheetNames.includes('Sheet_Details_RDE')) {
-                    parsed.sheetDetails = XLSX.utils.sheet_to_json(workbook.Sheets['Sheet_Details_RDE']);
-                }
-                if (workbook.SheetNames.includes('User_Inputs')) {
-                    parsed.userInputs = XLSX.utils.sheet_to_json(workbook.Sheets['User_Inputs']);
-                }
-
-                // Validate
-                const errors = validateParsedData(parsed);
-                setValidationErrors(errors);
-                setParsedData(parsed);
-
-            } catch (err: any) {
-                setValidationErrors([{ tab: 'File', row: 0, message: 'Failed to parse Excel file: ' + err.message }]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        reader.readAsBinaryString(file);
+        try {
+            if (file.size > 10 * 1024 * 1024) throw new Error('File exceeds the 10 MB upload limit.');
+            const { default: ExcelJS } = await import('exceljs');
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(await file.arrayBuffer());
+            const readSheet = (name: string): any[] => {
+                const worksheet = workbook.getWorksheet(name);
+                if (!worksheet) return [];
+                const headers = (worksheet.getRow(1).values as unknown[]).slice(1).map(value => String(value || '').trim());
+                const rows: any[] = [];
+                worksheet.eachRow((row, rowNumber) => {
+                    if (rowNumber === 1) return;
+                    const item: Record<string, unknown> = {};
+                    headers.forEach((header, index) => {
+                        if (header) item[header] = row.getCell(index + 1).value;
+                    });
+                    if (Object.values(item).some(value => value !== null && value !== undefined && value !== '')) rows.push(item);
+                });
+                return rows;
+            };
+            const parsed: ParsedData = {
+                routines: readSheet('Routines'),
+                reports: readSheet('Reports'),
+                mappings: readSheet('CDM_Mappings'),
+                attributes: readSheet('Attributes'),
+                outputSheets: readSheet('Output_Sheets'),
+                sheetDetails: readSheet('Sheet_Details_RDE'),
+                userInputs: readSheet('User_Inputs')
+            };
+            setValidationErrors(validateParsedData(parsed));
+            setParsedData(parsed);
+        } catch (err: any) {
+            setValidationErrors([{ tab: 'File', row: 0, message: 'Failed to parse Excel file: ' + err.message }]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const validateParsedData = (data: ParsedData): ValidationError[] => {
@@ -278,7 +263,7 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImportComp
                 setValidationErrors([{ tab: 'File', row: 0, message: 'Please upload an .xlsx file' }]);
                 return;
             }
-            parseExcelFile(file);
+            void parseExcelFile(file);
         }
     };
 
@@ -289,7 +274,7 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImportComp
         setImportStatus('idle');
 
         try {
-            await dataService.importRoutines(parsedData, user?.username || 'unknown');
+            await dataService.importRoutines(parsedData);
             setImportStatus('success');
             setImportMessage(`Successfully imported ${parsedData.routines.length} routine(s)`);
             // Refresh data and close after delay

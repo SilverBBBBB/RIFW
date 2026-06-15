@@ -1,36 +1,5 @@
 
-import { Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, ActivityLog } from './types';
-
-export const MOCK_ACTIVITY_LOGS: ActivityLog[] = [
-  {
-    log_id: 'log_01',
-    user_id: 'user123',
-    activity_type: 'Create Routine',
-    activity_timestamp: '2023-11-01T10:00:00Z',
-    details: 'User user123 created a new routine: Existence and Value Testing'
-  },
-  {
-    log_id: 'log_02',
-    user_id: 'user456',
-    activity_type: 'Update Routine',
-    activity_timestamp: '2023-11-02T11:30:00Z',
-    details: 'User user456 updated the routine: Derivatives Fair Value Rollforward'
-  },
-  {
-    log_id: 'log_03',
-    user_id: 'user123',
-    activity_type: 'Update Routine',
-    activity_timestamp: '2023-11-03T09:15:00Z',
-    details: 'User user123 updated the routine: Investment Fair Value and Cost Rollforward'
-  },
-  {
-    log_id: 'log_04',
-    user_id: 'user789',
-    activity_type: 'Create Routine',
-    activity_timestamp: '2023-11-04T14:00:00Z',
-    details: 'User user789 created a new routine: Foreign Currency Translation'
-  }
-];
+import { Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput } from './types';
 
 export const VERSIONS = ['v1.0', 'v1.1', 'v1.2', 'prod v1.2', 'v2.0', 'v2.1', 'v3.0'];
 

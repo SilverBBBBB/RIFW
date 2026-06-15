@@ -2,13 +2,14 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
 import { toast } from 'react-toastify';
+import { dataService } from '../services/dataService';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isAuthReady: boolean;
   login: (username, password) => Promise<void>;
   logout: () => void;
-  register: (username, password) => Promise<void>;
   hasRole: (role: UserRole | UserRole[]) => boolean;
 }
 
@@ -17,23 +18,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
     const storedToken = sessionStorage.getItem('token');
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
-    } else if (import.meta.env.DEV) {
-      // Auto-login as admin in development mode
-      const devAdmin: User = { username: 'DevAdmin', role: 'admin' };
-      setUser(devAdmin);
-      setToken('dev-token');
-      sessionStorage.setItem('user', JSON.stringify(devAdmin));
-      sessionStorage.setItem('token', 'dev-token');
-    } else {
+    try {
+      if (storedUser && storedToken) {
+        const parsedUser = JSON.parse(storedUser) as User;
+        setUser(parsedUser);
+        setToken(storedToken);
+        dataService.setAccessToken(storedToken);
+      } else {
+        setUser({ username: 'Guest', role: 'guest' });
+      }
+    } catch {
+      sessionStorage.clear();
       setUser({ username: 'Guest', role: 'guest' });
     }
+    setIsAuthReady(true);
+  }, []);
+
+  useEffect(() => {
+    const handleExpired = () => {
+      toast.error('Your session expired. Please log in again.');
+      logout();
+    };
+    window.addEventListener('auth-expired', handleExpired);
+    return () => window.removeEventListener('auth-expired', handleExpired);
   }, []);
 
   const login = async (username, password) => {
@@ -47,6 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { user: loggedInUser, token: newToken } = await response.json();
       setUser(loggedInUser);
       setToken(newToken);
+      dataService.setAccessToken(newToken);
       sessionStorage.setItem('user', JSON.stringify(loggedInUser));
       sessionStorage.setItem('token', newToken);
     } else {
@@ -58,23 +71,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser({ username: 'Guest', role: 'guest' });
     setToken(null);
+    dataService.setAccessToken(null);
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('token');
-  };
-
-  const register = async (username, password) => {
-    const response = await fetch('/api/Register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (response.ok) {
-      toast.success('User registered successfully! Please log in.');
-    } else {
-      const errorText = await response.text();
-      toast.error(errorText || 'Registration failed.');
-    }
   };
 
   const hasRole = (roles: UserRole | UserRole[]) => {
@@ -85,7 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register, hasRole }}>
+    <AuthContext.Provider value={{ user, token, isAuthReady, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

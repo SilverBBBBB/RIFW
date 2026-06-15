@@ -27,7 +27,7 @@ const DefaultMappingModal: React.FC<DefaultMappingModalProps> = ({ reportName, o
 
     const addRow = () => {
         const newMapping: DefaultMapping = {
-            id: Math.random().toString(36).substring(2),
+            id: crypto.randomUUID(),
             report_name: reportName,
             field_mapping_name: '',
             data_type: dataTypes[0] || 'String',
@@ -47,15 +47,19 @@ const DefaultMappingModal: React.FC<DefaultMappingModalProps> = ({ reportName, o
         setMappings(mappings.filter((_, i) => i !== index));
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Validate?
         if (mappings.some(m => !m.field_mapping_name.trim())) {
             alert("All mappings must have a name.");
             return;
         }
 
-        dataService.saveDefaultMappings(reportName, mappings, user.username);
-        onClose();
+        try {
+            await dataService.saveDefaultMappings(reportName, mappings);
+            onClose();
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Failed to save default mappings.');
+        }
     };
 
     return (

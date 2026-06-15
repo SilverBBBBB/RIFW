@@ -16,6 +16,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   const [newInputs, setNewInputs] = useState<Record<string, string>>({});
   const [editingDefaultsReport, setEditingDefaultsReport] = useState<string | null>(null);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setConfig(dataService.getConfig());
@@ -23,23 +24,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
   if (!config) return <div>Loading...</div>;
 
-  const handleAddItem = (category: ConfigCategory) => {
+  const handleAddItem = async (category: ConfigCategory) => {
     const value = newInputs[category]?.trim();
     if (value) {
-      dataService.addConfigOption(category, value);
-      setConfig(dataService.getConfig());
-      setNewInputs({ ...newInputs, [category]: '' });
+      try {
+        await dataService.addConfigOption(category, value);
+        setConfig(dataService.getConfig());
+        setNewInputs({ ...newInputs, [category]: '' });
+        setSaveError(null);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'Failed to update configuration.');
+      }
     }
   };
 
-  const handleRemoveItem = (category: ConfigCategory, value: string) => {
+  const handleRemoveItem = async (category: ConfigCategory, value: string) => {
     if (window.confirm(`Are you sure you want to remove "${value}"?`)) {
-      dataService.removeConfigOption(category, value);
-      setConfig(dataService.getConfig());
+      try {
+        await dataService.removeConfigOption(category, value);
+        setConfig(dataService.getConfig());
+        setSaveError(null);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'Failed to update configuration.');
+      }
     }
   };
 
-  const handleMoveItem = (category: ConfigCategory, index: number, direction: 'up' | 'down') => {
+  const handleMoveItem = async (category: ConfigCategory, index: number, direction: 'up' | 'down') => {
     if (!config) return;
     const items = [...(config[category] || [])];
 
@@ -51,8 +62,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       [items[index], items[index + 1]] = [items[index + 1], items[index]];
     }
 
-    dataService.updateConfig(category, items);
-    setConfig(dataService.getConfig());
+    try {
+      await dataService.updateConfig(category, items);
+      setConfig(dataService.getConfig());
+      setSaveError(null);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to update configuration.');
+    }
   };
 
   const handleInputChange = (category: ConfigCategory, value: string) => {
@@ -124,6 +140,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
           <p>Modifying these values will immediately affect the dropdown options available in the Add/Edit Routine forms. Deleting a value used by existing routines does not modify those routines, but the value will no longer be selectable for new entries.</p>
         </div>
       </div>
+      {saveError && <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{saveError}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2">

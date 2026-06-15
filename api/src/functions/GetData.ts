@@ -1,9 +1,12 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool } from '../shared/sql';
+import { authenticate, isAuthResponse } from '../shared/auth';
 
 export async function getData(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log('Fetching all data...');
+    const auth = await authenticate(request, ['Admin', 'User'], context);
+    if (isAuthResponse(auth)) return auth;
 
     try {
         const pool = await getPool();
@@ -58,6 +61,7 @@ export async function getData(request: HttpRequest, context: InvocationContext):
 
         const routines = rRoutines.recordset.map((r: any) => ({
             ...r,
+            row_version: Buffer.isBuffer(r.row_version) ? r.row_version.toString('base64') : undefined,
             fund_types: safeParseArray(r.fund_types),
             region: safeParseArray(r.region),
             helper_routines: safeParseArray(r.helper_routines),
@@ -79,9 +83,9 @@ export async function getData(request: HttpRequest, context: InvocationContext):
                 defaultMappings: rDefaultMappings.recordset.map((m: any) => ({ ...m, is_required: !!m.is_required }))
             }
         };
-    } catch (err: any) {
+    } catch (err) {
         context.error(err);
-        return { status: 500, body: "Error fetching data: " + err.message };
+        return { status: 500, jsonBody: { error: 'Error fetching data.' } };
     }
 }
 

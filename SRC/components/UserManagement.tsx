@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/AuthContext';
-import { User, UserRole } from '../types';
 import { Users, Shield, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 interface FetchedUser {
   Id: number;
   Username: string;
-  Role: UserRole;
+  Role: 'Admin' | 'User';
+  IsActive: boolean;
 }
 
 const UserManagement: React.FC = () => {
@@ -15,10 +15,11 @@ const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<FetchedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'User' as 'User' | 'Admin' });
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     userToUpdate: FetchedUser | null;
-    newRole: UserRole | null;
+    newRole: 'Admin' | 'User' | null;
   }>({ isOpen: false, userToUpdate: null, newRole: null });
 
   useEffect(() => {
@@ -31,7 +32,7 @@ const UserManagement: React.FC = () => {
       try {
         setLoading(true);
         const response = await fetch('/api/GetUsers', {
-          headers: { 'X-Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -48,7 +49,7 @@ const UserManagement: React.FC = () => {
     fetchUsers();
   }, [token]);
 
-  const handleRoleChange = (userId: number, newRole: UserRole) => {
+  const handleRoleChange = (userId: number, newRole: 'Admin' | 'User') => {
     const userToUpdate = users.find(u => u.Id === userId);
     if (userToUpdate && userToUpdate.Role !== newRole) {
       setModalState({ isOpen: true, userToUpdate, newRole });
@@ -65,7 +66,7 @@ const UserManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ userId: userToUpdate.Id, newRole })
       });
@@ -87,6 +88,29 @@ const UserManagement: React.FC = () => {
 
   const handleCancelUpdate = () => {
     setModalState({ isOpen: false, userToUpdate: null, newRole: null });
+  };
+
+  const handleCreateUser = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+    setError(null);
+    const response = await fetch('/api/Register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(newUser)
+    });
+    if (!response.ok) {
+      setError(await response.text() || 'Failed to create user.');
+      return;
+    }
+    setNewUser({ username: '', password: '', role: 'User' });
+    const usersResponse = await fetch('/api/GetUsers', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (usersResponse.ok) setUsers(await usersResponse.json());
   };
 
   const renderContent = () => {
@@ -112,7 +136,7 @@ const UserManagement: React.FC = () => {
             <div className="w-40">
               <select
                 value={user.Role}
-                onChange={(e) => handleRoleChange(user.Id, e.target.value as UserRole)}
+                onChange={(e) => handleRoleChange(user.Id, e.target.value as 'Admin' | 'User')}
                 disabled={user.Id === currentUser?.id}
                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
               >
@@ -136,6 +160,15 @@ const UserManagement: React.FC = () => {
           <p className="text-xs text-slate-500">Assign roles to system users.</p>
         </div>
         <div className="p-5">{renderContent()}</div>
+        <form onSubmit={handleCreateUser} className="p-5 border-t border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} placeholder="Username" className="border rounded-md px-3 py-2 text-sm" required />
+          <input type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Temporary password" className="border rounded-md px-3 py-2 text-sm" required minLength={12} />
+          <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as 'User' | 'Admin' })} className="border rounded-md px-3 py-2 text-sm">
+            <option value="User">User</option>
+            <option value="Admin">Admin</option>
+          </select>
+          <button type="submit" className="bg-blue-600 text-white rounded-md px-3 py-2 text-sm hover:bg-blue-700">Create User</button>
+        </form>
       </div>
 
       {/* Confirmation Modal */}

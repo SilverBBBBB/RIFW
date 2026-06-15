@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Routine Info Workflow
 
-# Run and deploy your AI Studio app
+React/Vite application with Azure Functions and Azure SQL, deployed through
+Azure Static Web Apps.
 
-This contains everything you need to run your app locally.
+## Prerequisites
 
-View your app in AI Studio: https://ai.studio/apps/drive/1LaHAElLqPCPCj0pEYBCenUZXE1M-1xuG
+- Node.js 20
+- Azure Functions Core Tools for local API execution
+- Azure SQL database with the scripts in `migrations/` applied
 
-## Run Locally
+## Required API settings
 
-**Prerequisites:**  Node.js
+- `DB_SERVER`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `JWT_SECRET` with at least 32 random characters
 
+The SQL account should have only the permissions required by this application.
+Do not enable `trustServerCertificate` or commit local settings and secrets.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Local validation
+
+```text
+npm ci
+npm run check
+cd api
+npm ci
+npm run check
+```
+
+The first administrator must be provisioned directly in Azure SQL with a
+bcrypt password hash. After login, administrators create additional users from
+the application administration panel.
+
+## Deployment
+
+Add an `AZURE_SQL_CONNECTION_STRING` repository or production-environment
+secret with a least-privilege Azure SQL deployment account. The Azure SQL
+server must allow the GitHub Actions runner to connect.
+
+On pushes to `main`, GitHub Actions validates the frontend and API, applies the
+numbered scripts in `migrations/`, and deploys the application only after the
+database migration succeeds.

@@ -11,7 +11,6 @@ import {
   Table as TableIcon, X, ArrowUp, ArrowDown, ArrowDownUp, Search, GripVertical, Monitor,
   MousePointerClick, Download, History
 } from 'lucide-react';
-import { utils, writeFile } from 'xlsx';
 import { useAuth } from '../hooks/AuthContext';
 
 interface DashboardProps {
@@ -58,7 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   // Drag and Drop State
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [localSheets, setLocalSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
-  const { hasRole, user } = useAuth();
+  const { hasRole } = useAuth();
 
   const loadData = (currentFilters: RoutineFilters = filters) => {
     // Refresh config to get latest versions
@@ -78,14 +77,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleApplyFilters = () => {
     loadData();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       // 1. Fetch all data based on current filters
       const exportRoutines = dataService.getRoutines(filters);
@@ -96,22 +94,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
       const exportDetails = dataService.getSheetDetailsView(filters);
       const exportUserInputs = dataService.getUserInputsView(filters);
 
-      // 2. Create Workbook
-      const wb = utils.book_new();
+      const { default: ExcelJS } = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const addWorksheet = (name: string, rows: Record<string, unknown>[]) => {
+        const worksheet = workbook.addWorksheet(name);
+        const keys = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+        worksheet.columns = keys.map(key => ({ header: key, key, width: 20 }));
+        rows.forEach(row => worksheet.addRow(row));
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+      };
+      addWorksheet('Routines', exportRoutines as unknown as Record<string, unknown>[]);
+      addWorksheet('Reports', exportReports as unknown as Record<string, unknown>[]);
+      addWorksheet('CDM Mappings', exportMappings as unknown as Record<string, unknown>[]);
+      addWorksheet('Attributes', exportAttributes as unknown as Record<string, unknown>[]);
+      addWorksheet('Output Sheets', exportSheets as unknown as Record<string, unknown>[]);
+      addWorksheet('Sheet Details', exportDetails as unknown as Record<string, unknown>[]);
+      addWorksheet('User Inputs', exportUserInputs as unknown as Record<string, unknown>[]);
 
-      // 3. Create Sheets
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportRoutines), "Routines");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportReports), "Reports");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportMappings), "CDM Mappings");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportAttributes), "Attributes");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportSheets), "Output Sheets");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportDetails), "Sheet Details");
-      utils.book_append_sheet(wb, utils.json_to_sheet(exportUserInputs), "User Inputs");
-
-      // 4. Save File
       const versionSuffix = filters.version ? `_${filters.version}` : '_All_Versions';
       const dateSuffix = new Date().toISOString().split('T')[0];
-      writeFile(wb, `AMAP_Export${versionSuffix}_${dateSuffix}.xlsx`);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `AMAP_Export${versionSuffix}_${dateSuffix}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export data. See console for details.");
@@ -163,7 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     return val;
   };
 
-  const applySort = <T extends unknown>(data: T[]): T[] => {
+  const applySort = <T,>(data: T[]): T[] => {
     if (!sortConfig) return data;
     return [...data].sort((a, b) => {
       const aVal = getSortableValue(a, sortConfig.key);
@@ -232,17 +242,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   }, [attributes, columnFilters, sortConfig]);
 
   const processedSheets = useMemo(() => {
-    const filtered = sheets.filter(s => {
+    const filtered = localSheets.filter(s => {
       return (
         filterValueMatches(s.routine_name, columnFilters['routine_name']) &&
         filterValueMatches(s.sheet_name, columnFilters['sheet_name']) &&
         filterValueMatches(s.order_index, columnFilters['order_index'])
       );
     });
-    const sorted = applySort(filtered);
-    setLocalSheets(sorted); // Update local drag state when filters/sort change
-    return sorted;
-  }, [sheets, columnFilters, sortConfig]);
+    return applySort(filtered);
+  }, [localSheets, columnFilters, sortConfig]);
 
   const processedSheetDetails = useMemo(() => {
     const filtered = sheetDetails.filter(sd => {
@@ -294,30 +302,40 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
     e.preventDefault();
   };
 
-  const handleDrop = (dropIndex: number) => {
+  const handleDrop = async (dropIndex: number) => {
     if (draggedItemIndex === null || draggedItemIndex === dropIndex) return;
+    if (sortConfig || Object.keys(columnFilters).length > 0) {
+      alert('Clear sheet filters and sorting before reordering.');
+      setDraggedItemIndex(null);
+      return;
+    }
+    const draggedItem = localSheets[draggedItemIndex];
+    const targetItem = localSheets[dropIndex];
+    if (!draggedItem || !targetItem || draggedItem.routine_id !== targetItem.routine_id) {
+      alert('Sheets can only be reordered within the same routine.');
+      setDraggedItemIndex(null);
+      return;
+    }
 
-    // Create a copy of the current list
-    const newItems = [...localSheets];
-    // Remove the dragged item
-    const [draggedItem] = newItems.splice(draggedItemIndex, 1);
-    // Insert it at the new position
-    newItems.splice(dropIndex, 0, draggedItem);
+    const routineSheets = localSheets.filter(item => item.routine_id === draggedItem.routine_id);
+    const sourceRoutineIndex = routineSheets.findIndex(item => item.id === draggedItem.id);
+    const targetRoutineIndex = routineSheets.findIndex(item => item.id === targetItem.id);
+    const reorderedRoutineSheets = [...routineSheets];
+    const [moved] = reorderedRoutineSheets.splice(sourceRoutineIndex, 1);
+    reorderedRoutineSheets.splice(targetRoutineIndex, 0, moved);
+    const itemsToUpdate = reorderedRoutineSheets.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+    const updateMap = new Map(itemsToUpdate.map(item => [item.id, item]));
+    const nextSheets = localSheets.map(item => updateMap.get(item.id) || item);
 
-    // Re-index ALL items strictly from 1 to N based on their new visual order
-    const itemsToUpdate = newItems.map((item, idx) => ({
-      ...item,
-      order_index: idx + 1
-    }));
-
-    setLocalSheets(itemsToUpdate);
+    setLocalSheets(nextSheets);
     setDraggedItemIndex(null);
-
-    // Persist the new order
-    dataService.updateSheetOrders(itemsToUpdate, user.username);
-    
-    // Reload to reflect changes (with a slight delay to allow API to process if needed)
-    setTimeout(loadData, 100);
+    try {
+      await dataService.updateSheetOrders(itemsToUpdate);
+      loadData();
+    } catch (error) {
+      setLocalSheets(sheets);
+      alert(error instanceof Error ? error.message : 'Failed to reorder sheets.');
+    }
   };
 
 
@@ -466,72 +484,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                 <Plus size={18} /> Add New Routine
               </button>
             )}
-          </div>
-        </div>
-
-        {/* AI Search Bar */}
-        <div className="mb-6 relative">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Ask AI to filter... (e.g., 'Show me Capital routines in North America active since January')"
-              className="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-all"
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter') {
-                  const query = e.currentTarget.value;
-                  if (!query.trim()) return;
-
-                  const input = e.currentTarget;
-                  const originalPlaceholder = input.placeholder;
-                  input.disabled = true;
-                  input.placeholder = "AI is thinking...";
-
-                  try {
-                    const response = await fetch('/api/ProcessSearch', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ query })
-                    });
-
-                    if (response.ok) {
-                      const result = await response.json();
-
-                      const newFilters = {
-                        ...filters,
-                        version: result.version || filters.version,
-                        startDate: result.startDate || filters.startDate,
-                        endDate: result.endDate || filters.endDate
-                      };
-
-                      // Apply Global Filters
-                      setFilters(newFilters);
-
-                      // Apply Column Filters
-                      if (result.columnFilters) {
-                        setColumnFilters(prev => ({
-                          ...prev,
-                          ...result.columnFilters
-                        }));
-                      }
-
-                      // Trigger data reload with new filters
-                      loadData(newFilters);
-                    }
-                  } catch (error) {
-                    console.error("AI Search failed", error);
-                    alert("AI Search failed. Please try again.");
-                  } finally {
-                    input.disabled = false;
-                    input.placeholder = originalPlaceholder;
-                    input.focus();
-                  }
-                }
-              }
-              }
-            />
-            <div className="absolute left-3 top-3.5 text-purple-500">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
-            </div>
           </div>
         </div>
 
@@ -773,7 +725,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   <tr
                     key={row.id}
                     className="hover:bg-slate-50"
-                    draggable
+                    draggable={hasRole(['admin', 'user']) && !sortConfig && Object.keys(columnFilters).length === 0}
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={() => handleDrop(idx)}
