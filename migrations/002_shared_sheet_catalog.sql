@@ -51,12 +51,12 @@ WHERE NOT EXISTS (
     WHERE existing.name_key = source.name_key
 );
 
-UPDATE output
+UPDATE os
 SET sheet_id = catalog.id
-FROM dbo.OutputSheets output
+FROM dbo.OutputSheets os
 JOIN dbo.SheetCatalog catalog
-  ON catalog.name_key = LOWER(LTRIM(RTRIM(output.sheet_name)))
-WHERE output.sheet_id IS NULL;
+  ON catalog.name_key = LOWER(LTRIM(RTRIM(os.sheet_name)))
+WHERE os.sheet_id IS NULL;
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
