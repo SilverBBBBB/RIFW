@@ -1,5 +1,7 @@
 export function compareRoutines(oldRoutine: any, newRoutine: any) {
     const changes: any = {};
+    const oldRoot = oldRoutine.routine || {};
+    const newRoot = newRoutine.routine || {};
 
     // Helper to compare primitive values
     const compareValues = (key: string, oldVal: any, newVal: any) => {
@@ -22,13 +24,13 @@ export function compareRoutines(oldRoutine: any, newRoutine: any) {
     // fund_types and helper_routines might be arrays
 
     topLevelKeys.forEach(key => {
-        compareValues(key, oldRoutine[key], newRoutine[key]);
+        compareValues(key, oldRoot[key], newRoot[key]);
     });
 
     // Compare arrays (fund_types, helper_routines)
     const compareSimpleArrays = (key: string) => {
-        const oldArr = oldRoutine[key] || [];
-        const newArr = newRoutine[key] || [];
+        const oldArr = oldRoot[key] || [];
+        const newArr = newRoot[key] || [];
         if (JSON.stringify(oldArr) !== JSON.stringify(newArr)) {
             changes[key] = { old: oldArr, new: newArr };
         }

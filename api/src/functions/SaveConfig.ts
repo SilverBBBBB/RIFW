@@ -1,7 +1,10 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getPool, sql } from '../shared/sql';
+import { authenticate, isAuthResponse } from '../shared/auth';
 
 export async function saveConfig(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const auth = await authenticate(request, ['Admin'], context);
+    if (isAuthResponse(auth)) return auth;
     let body: any;
     try {
         body = await request.json();
@@ -11,8 +14,12 @@ export async function saveConfig(request: HttpRequest, context: InvocationContex
 
     const { category, values } = body;
     
-    if (!category || !Array.isArray(values)) {
+    const allowedCategories = ['versions', 'routineTypes', 'fundTypes', 'regions', 'capitalStructures', 'dataTypes', 'reportNames', 'helperRoutines'];
+    if (!allowedCategories.includes(category) || !Array.isArray(values) || values.length > 500) {
         return { status: 400, body: "Invalid payload: Missing category or values array" };
+    }
+    if (values.some(value => typeof value !== 'string' || !value.trim() || value.length > 255)) {
+        return { status: 400, body: "Configuration values must be non-empty strings up to 255 characters." };
     }
 
     const pool = await getPool();

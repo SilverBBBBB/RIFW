@@ -114,26 +114,30 @@ const AdditionalDetailsDashboard: React.FC<AdditionalDetailsDashboardProps> = ({
     }
   }, [formData.rdeId, availableRdes]);
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!formData.rdeId) {
       alert("Please select a routine and an RDE.");
       return;
     }
 
-    dataService.updateSheetDetail(formData.rdeId, {
-      document_type: formData.document_type,
-      verification_rde_name: formData.verification_rde_name,
-      verification_required_status: formData.verification_required_status,
-      field_description: formData.field_description,
-      verification_data_type: formData.verification_data_type,
-      old_model_name: formData.old_model_name,
-      old_model_mapping: formData.old_model_mapping,
-      new_model_name: formData.new_model_name,
-      table_name: formData.table_name,
-      new_model_mapping: formData.new_model_mapping
-    }, user.username);
-
-    setIsFormOpen(false);
+    try {
+      await dataService.updateSheetDetail(formData.rdeId, {
+        document_type: formData.document_type,
+        verification_rde_name: formData.verification_rde_name,
+        verification_required_status: formData.verification_required_status,
+        field_description: formData.field_description,
+        verification_data_type: formData.verification_data_type,
+        old_model_name: formData.old_model_name,
+        old_model_mapping: formData.old_model_mapping,
+        new_model_name: formData.new_model_name,
+        table_name: formData.table_name,
+        new_model_mapping: formData.new_model_mapping
+      });
+      setIsFormOpen(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update sheet details.');
+      return;
+    }
     setFormData({
       routineId: '',
       rdeId: '',

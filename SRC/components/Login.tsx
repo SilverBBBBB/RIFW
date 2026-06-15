@@ -6,19 +6,11 @@ import { toast } from 'react-toastify';
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login, register } = useAuth();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(username, password);
-  };
-
-  const handleRegister = async () => {
-    if (!username || !password) {
-      toast.error('Username and password are required to register.');
-      return;
-    }
-    await register(username, password);
   };
 
   return (
@@ -42,13 +34,6 @@ const Login: React.FC = () => {
           <button type="submit" className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
             Login
           </button>
-          <button 
-              type="button"
-              onClick={handleRegister}
-              className="px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm"
-            >
-              Register
-            </button>
         </div>
       </div>
     </form>

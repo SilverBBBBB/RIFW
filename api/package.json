@@ -4,24 +4,25 @@
   "description": "API for Routine Info Workflow",
   "main": "dist/src/functions/*.js",
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
+    "typecheck": "tsc --noEmit",
     "watch": "tsc -w",
     "prestart": "npm run build",
     "start": "func start",
-    "test": "echo \"No tests yet...\""
+    "test": "node --test dist/tests/auth.test.js",
+    "check": "npm run typecheck && npm run build && npm run test"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
-    "@google/generative-ai": "^0.24.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.2",
-    "mssql": "^10.0.1"
+    "mssql": "^12.5.0"
   },
   "devDependencies": {
-    "@types/mssql": "^8.1.2",
-    "@types/node": "18.x",
-    "typescript": "^4.0.0"
+    "@types/mssql": "^9.1.8",
+    "@types/node": "20.x",
+    "typescript": "^5.8.3"
   }
 }

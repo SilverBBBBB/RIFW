@@ -1,14 +1,14 @@
 import * as sql from 'mssql';
 
 const config: sql.config = {
-user: process.env.DB_USER,          // Was SQL_USER
-  password: process.env.DB_PASSWORD,  // Was SQL_PASSWORD
-  server: process.env.DB_SERVER!,     // Was SQL_SERVER!
-  database: process.env.DB_NAME,      // Was SQL_DATABASE
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER!,
+  database: process.env.DB_NAME,
   options: {
     encrypt: true,
     enableArithAbort: true,
-    trustServerCertificate: true,
+    trustServerCertificate: false,
     connectTimeout: 30000
   }
 };
@@ -16,13 +16,16 @@ user: process.env.DB_USER,          // Was SQL_USER
 let pool: sql.ConnectionPool | null = null;
 
 export const getPool = async (): Promise<sql.ConnectionPool> => {
-  if (pool) return pool;
+  if (pool?.connected) return pool;
   try {
-    pool = await sql.connect(config);
-    console.log('Connected to SQL Database');
+    pool = new sql.ConnectionPool(config);
+    pool.on("error", () => {
+      pool = null;
+    });
+    await pool.connect();
     return pool;
   } catch (err) {
-    console.error('Database Connection Failed', err);
+    pool = null;
     throw err;
   }
 };

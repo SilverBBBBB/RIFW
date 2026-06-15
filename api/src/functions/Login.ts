@@ -1,14 +1,23 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
 import { getPool, sql } from '../shared/sql';
+import { signToken } from '../shared/auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const attempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
 
 export async function Login(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Http function processed request for url "${request.url}"`);
 
-    const { username, password } = await request.json() as any;
+    let body: { username?: string; password?: string };
+    try {
+        body = await request.json() as { username?: string; password?: string };
+    } catch {
+        return { status: 400, body: "Invalid JSON payload." };
+    }
+    const username = body.username?.trim();
+    const password = body.password;
 
     if (!username || !password) {
         return {
@@ -18,29 +27,36 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
     }
 
     try {
+        const clientKey = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+        const now = Date.now();
+        const current = attempts.get(clientKey);
+        if (current && current.resetAt > now && current.count >= MAX_ATTEMPTS) {
+            return { status: 429, body: "Too many login attempts. Try again later." };
+        }
+        if (!current || current.resetAt <= now) {
+            attempts.set(clientKey, { count: 0, resetAt: now + WINDOW_MS });
+        }
+
         const pool = await getPool();
         const result = await pool.request()
             .input('username', sql.VarChar, username)
-            .query('SELECT * FROM Users WHERE Username = @username');
-
-        if (result.recordset.length === 0) {
-            return {
-                status: 404,
-                body: "User not found"
-            };
-        }
+            .query('SELECT Id, Username, Password, Role, TokenVersion, IsActive FROM Users WHERE Username = @username');
 
         const user = result.recordset[0];
-        const passwordMatch = await bcrypt.compare(password, user.Password);
+        const passwordMatch = user?.IsActive === true && await bcrypt.compare(password, user.Password);
 
         if (!passwordMatch) {
-            return {
-                status: 401,
-                body: "Incorrect password."
-            };
+            attempts.get(clientKey)!.count += 1;
+            return { status: 401, body: "Invalid username or password." };
         }
 
-        const token = jwt.sign({ id: user.Id, username: user.Username, role: user.Role.trim() }, JWT_SECRET, { expiresIn: '1h' });
+        attempts.delete(clientKey);
+        const token = signToken({
+            id: user.Id,
+            username: user.Username,
+            role: user.Role.trim(),
+            tokenVersion: user.TokenVersion
+        });
 
         return {
             status: 200,
@@ -49,12 +65,12 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
                 user: {
                     id: user.Id,
                     username: user.Username,
-                    role: user.Role
+                    role: user.Role.trim().toLowerCase()
                 }
             }
         };
     } catch (error) {
-        context.log(error);
+        context.error(error);
         return {
             status: 500,
             body: "An error occurred while logging in."

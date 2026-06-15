@@ -20,6 +20,7 @@ class DataService {
 
   private isInitialized = false;
   private useApi = true;
+  private accessToken: string | null = null;
   public initError: string | null = null;
 
   private config: AppConfiguration = {
@@ -37,12 +38,29 @@ class DataService {
 
   // --- API INTEGRATION ---
 
+  setAccessToken(token: string | null): void {
+    this.accessToken = token;
+    if (!token) this.reset();
+  }
+
+  private async apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+    if (!this.accessToken) throw new Error('Authentication required');
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${this.accessToken}`);
+    if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    const response = await fetch(path, { ...init, headers });
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent('auth-expired'));
+    }
+    return response;
+  }
+
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
     this.initError = null;
 
     try {
-      const response = await fetch('/api/data');
+      const response = await this.apiFetch('/api/data');
       if (!response.ok) throw new Error('Failed to fetch data from server');
 
       const data = await response.json();
@@ -148,10 +166,9 @@ class DataService {
     localStorage.setItem('amap_data', JSON.stringify(data));
   }
 
-  private async saveToApi(routineId: string, username: string) {
+  private async saveToApi(routineId: string): Promise<string | undefined> {
     if (!this.useApi) {
-      this.saveToLocalStorage();
-      return;
+      throw new Error('API connection required');
     }
 
     const routine = this.routines.find(r => r.id === routineId);
@@ -168,22 +185,14 @@ class DataService {
     const sheetDetails = this.sheetDetails.filter(d => sheetIds.includes(d.output_sheet_id));
     const userInputs = this.userInputs.filter(u => u.routine_id === routineId);
 
-    const payload = {
-      routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, username
-    };
-
-    try {
-      const response = await fetch('/api/routine', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error('API save failed');
-    } catch (e) {
-      console.error("Failed to save to API, falling back to local storage", e);
-      this.useApi = false; // Switch to offline mode
-      this.saveToLocalStorage();
-    }
+    const payload = { routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs };
+    const response = await this.apiFetch('/api/routine', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(await response.text() || 'API save failed');
+    const result = await response.json();
+    return result.row_version;
   }
 
   // --- CONFIGURATION ---
@@ -192,34 +201,26 @@ class DataService {
     return { ...this.config };
   }
 
-  updateConfig(category: ConfigCategory, newValues: string[]): void {
+  async updateConfig(category: ConfigCategory, newValues: string[]): Promise<void> {
+    if (!this.useApi) throw new Error('API connection required');
+    const response = await this.apiFetch('/api/config', {
+      method: 'POST',
+      body: JSON.stringify({ category, values: newValues })
+    });
+    if (!response.ok) throw new Error(await response.text() || 'Failed to update configuration');
     this.config[category] = newValues;
-
-    if (this.useApi) {
-      fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, values: newValues })
-      }).catch(e => {
-        console.warn("Failed to save config to API", e);
-        this.useApi = false;
-        this.saveToLocalStorage();
-      });
-    } else {
-      this.saveToLocalStorage();
-    }
   }
 
-  addConfigOption(category: ConfigCategory, value: string): void {
+  async addConfigOption(category: ConfigCategory, value: string): Promise<void> {
     if (!this.config[category].includes(value)) {
       const newValues = [...this.config[category], value];
-      this.updateConfig(category, newValues);
+      await this.updateConfig(category, newValues);
     }
   }
 
-  removeConfigOption(category: ConfigCategory, value: string): void {
+  async removeConfigOption(category: ConfigCategory, value: string): Promise<void> {
     const newValues = this.config[category].filter(item => item !== value);
-    this.updateConfig(category, newValues);
+    await this.updateConfig(category, newValues);
   }
 
   // --- DEFAULT MAPPINGS ---
@@ -231,25 +232,15 @@ class DataService {
     return this.defaultMappings;
   }
 
-  async saveDefaultMappings(reportName: string, mappings: DefaultMapping[], username: string): Promise<void> {
-    // Update local state
+  async saveDefaultMappings(reportName: string, mappings: DefaultMapping[]): Promise<void> {
+    if (!this.useApi) throw new Error('API connection required');
+    const response = await this.apiFetch('/api/saveDefaultMappings', {
+      method: 'POST',
+      body: JSON.stringify({ report_name: reportName, mappings })
+    });
+    if (!response.ok) throw new Error(await response.text() || 'Failed to save default mappings');
     this.defaultMappings = this.defaultMappings.filter(m => m.report_name !== reportName);
     this.defaultMappings.push(...mappings);
-
-    if (this.useApi) {
-      try {
-        await fetch('/api/saveDefaultMappings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report_name: reportName, mappings, username })
-        });
-      } catch (e) {
-        console.error("Failed to save default mappings to API", e);
-        this.saveToLocalStorage();
-      }
-    } else {
-      this.saveToLocalStorage();
-    }
   }
 
   // --- READ ---
@@ -425,7 +416,7 @@ class DataService {
 
   // --- WRITE ---
 
-  saveRoutine(
+  async saveRoutine(
     routine: Routine,
     reports: Report[],
     mappings: CDMMapping[],
@@ -433,8 +424,16 @@ class DataService {
     outputSheets: OutputSheet[],
     sheetDetails: SheetDetail[],
     userInputs: UserInput[],
-    username: string
-  ): void {
+  ): Promise<void> {
+    const snapshot = {
+      routines: structuredClone(this.routines),
+      reports: structuredClone(this.reports),
+      cdmMappings: structuredClone(this.cdmMappings),
+      attributes: structuredClone(this.attributes),
+      outputSheets: structuredClone(this.outputSheets),
+      sheetDetails: structuredClone(this.sheetDetails),
+      userInputs: structuredClone(this.userInputs)
+    };
     const existingIndex = this.routines.findIndex(r => r.id === routine.id);
     const now = new Date().toISOString();
     const updatedRoutine = { ...routine, last_edited_date: now };
@@ -454,7 +453,9 @@ class DataService {
     this.attributes = this.attributes.filter(a => !currentMappingIds.includes(a.cdm_mapping_id));
 
     const currentSheetIds = this.outputSheets.filter(s => s.routine_id === routine.id).map(s => s.id);
-    let maxOrder = this.outputSheets.reduce((max, s) => Math.max(max, s.order_index || 0), 0);
+    let maxOrder = this.outputSheets
+      .filter(sheet => sheet.routine_id === routine.id)
+      .reduce((max, sheet) => Math.max(max, sheet.order_index || 0), 0);
     const finalOutputSheets = outputSheets.map(s => {
       if (s.order_index === undefined || s.order_index === 0) {
         maxOrder++;
@@ -475,12 +476,30 @@ class DataService {
     this.sheetDetails.push(...sheetDetails);
     this.userInputs.push(...userInputs);
 
-    // Persist to Backend or Local Storage
-    this.saveToApi(routine.id, username);
+    try {
+      const rowVersion = await this.saveToApi(routine.id);
+      const saved = this.routines.find(item => item.id === routine.id);
+      if (saved && rowVersion) saved.row_version = rowVersion;
+    } catch (error) {
+      this.routines = snapshot.routines;
+      this.reports = snapshot.reports;
+      this.cdmMappings = snapshot.cdmMappings;
+      this.attributes = snapshot.attributes;
+      this.outputSheets = snapshot.outputSheets;
+      this.sheetDetails = snapshot.sheetDetails;
+      this.userInputs = snapshot.userInputs;
+      throw error;
+    }
   }
 
-  deleteRoutine(id: string): void {
-    // Optimistic UI update
+  async deleteRoutine(id: string): Promise<void> {
+    const routine = this.routines.find(item => item.id === id);
+    if (!routine?.row_version) throw new Error('Routine version is missing. Reload and retry.');
+    const response = await this.apiFetch(`/api/routine/delete?id=${encodeURIComponent(id)}&rowVersion=${encodeURIComponent(routine.row_version)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error(await response.text() || 'Failed to delete routine');
+
     const reportIds = this.reports.filter(r => r.routine_id === id).map(r => r.id);
     const mappingIds = this.cdmMappings.filter(m => reportIds.includes(m.report_id)).map(m => m.id);
     const sheetIds = this.outputSheets.filter(s => s.routine_id === id).map(s => s.id);
@@ -494,27 +513,31 @@ class DataService {
     this.userInputs = this.userInputs.filter(ui => ui.routine_id !== id);
     this.routines = this.routines.filter(r => r.id !== id);
 
-    // Call API if connected, else update local storage
-    if (this.useApi) {
-      fetch(`/api/routine/delete?id=${id}`, { method: 'DELETE' }).catch(() => this.saveToLocalStorage());
-    } else {
-      this.saveToLocalStorage();
-    }
   }
 
-  updateSheetDetail(id: string, updates: Partial<SheetDetail>, username: string): void {
+  async updateSheetDetail(id: string, updates: Partial<SheetDetail>): Promise<void> {
     const idx = this.sheetDetails.findIndex(sd => sd.id === id);
     if (idx !== -1) {
+      const previousDetail = { ...this.sheetDetails[idx] };
       this.sheetDetails[idx] = { ...this.sheetDetails[idx], ...updates };
-      // Save full routine to ensure consistency
       const sheet = this.outputSheets.find(s => s.id === this.sheetDetails[idx].output_sheet_id);
       if (sheet) {
-        this.saveToApi(sheet.routine_id, username);
+        try {
+          const rowVersion = await this.saveToApi(sheet.routine_id);
+          const routine = this.routines.find(item => item.id === sheet.routine_id);
+          if (routine && rowVersion) routine.row_version = rowVersion;
+        } catch (error) {
+          this.sheetDetails[idx] = previousDetail;
+          throw error;
+        }
       }
     }
   }
 
-  updateSheetOrders(orderedSheets: OutputSheet[], username: string) {
+  async updateSheetOrders(orderedSheets: OutputSheet[]): Promise<void> {
+    const routineIds = new Set(orderedSheets.map(sheet => sheet.routine_id));
+    if (routineIds.size !== 1) throw new Error('Sheets can only be reordered within one routine at a time.');
+    const previousSheets = structuredClone(this.outputSheets);
     const updateMap = new Map(orderedSheets.map(s => [s.id, s.order_index]));
 
     // Update local state
@@ -532,22 +555,30 @@ class DataService {
     });
 
     // Save each affected routine
-    affectedRoutineIds.forEach(routineId => {
-      this.saveToApi(routineId, username);
-    });
+    try {
+      for (const routineId of affectedRoutineIds) {
+        const rowVersion = await this.saveToApi(routineId);
+        const routine = this.routines.find(item => item.id === routineId);
+        if (routine && rowVersion) routine.row_version = rowVersion;
+      }
+    } catch (error) {
+      this.outputSheets = previousSheets;
+      throw error;
+    }
   }
 
   // Deep copy a routine to a new version
-  createNewVersion(originalRoutineId: string, newVersion: string, username: string): Routine | null {
+  async createNewVersion(originalRoutineId: string, newVersion: string): Promise<Routine | null> {
     const original = this.getRoutineById(originalRoutineId);
     if (!original) return null;
 
-    const generateId = () => Math.random().toString(36).substring(2, 10);
+    const generateId = () => crypto.randomUUID();
 
     const newRoutineId = generateId();
     const newRoutine: Routine = {
       ...original,
       id: newRoutineId,
+      row_version: undefined,
       version: newVersion,
       last_edited_date: new Date().toISOString()
     };
@@ -577,16 +608,13 @@ class DataService {
     const newSheets: OutputSheet[] = [];
     const newSheetDetails: SheetDetail[] = [];
 
-    let maxOrder = this.outputSheets.reduce((max, s) => Math.max(max, s.order_index || 0), 0);
-
-    originalSheets.forEach(sheet => {
+    originalSheets.forEach((sheet, index) => {
       const newSheetId = generateId();
-      maxOrder++;
       newSheets.push({
         ...sheet,
         id: newSheetId,
         routine_id: newRoutineId,
-        order_index: maxOrder
+        order_index: index + 1
       });
 
       const originalDetails = this.getSheetDetailsBySheetId(sheet.id);
@@ -610,7 +638,22 @@ class DataService {
     this.sheetDetails.push(...newSheetDetails);
     this.userInputs.push(...newUserInputs);
 
-    this.saveToApi(newRoutine.id, username);
+    try {
+      const rowVersion = await this.saveToApi(newRoutine.id);
+      if (rowVersion) newRoutine.row_version = rowVersion;
+    } catch (error) {
+      this.routines = this.routines.filter(item => item.id !== newRoutineId);
+      this.reports = this.reports.filter(item => item.routine_id !== newRoutineId);
+      const newReportIds = new Set(newReports.map(item => item.id));
+      const newMappingIds = new Set(newMappings.map(item => item.id));
+      const newSheetIds = new Set(newSheets.map(item => item.id));
+      this.cdmMappings = this.cdmMappings.filter(item => !newReportIds.has(item.report_id));
+      this.attributes = this.attributes.filter(item => !newMappingIds.has(item.cdm_mapping_id));
+      this.outputSheets = this.outputSheets.filter(item => item.routine_id !== newRoutineId);
+      this.sheetDetails = this.sheetDetails.filter(item => !newSheetIds.has(item.output_sheet_id));
+      this.userInputs = this.userInputs.filter(item => item.routine_id !== newRoutineId);
+      throw error;
+    }
 
     return newRoutine;
   }
@@ -625,15 +668,14 @@ class DataService {
     outputSheets: any[];
     sheetDetails: any[];
     userInputs: any[];
-  }, username: string): Promise<void> {
+  }): Promise<void> {
     if (!this.useApi) {
       throw new Error('Bulk import requires API connection');
     }
 
-    const response = await fetch('/api/routines/import', {
+    const response = await this.apiFetch('/api/routines/import', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, username })
+      body: JSON.stringify(data)
     });
 
     if (!response.ok) {
@@ -646,9 +688,6 @@ class DataService {
     await this.initialize();
   }
 
-  private generateId(): string {
-    return Math.random().toString(36).substring(2, 10);
-  }
 }
 
 export const dataService = new DataService();

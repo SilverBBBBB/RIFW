@@ -62,7 +62,7 @@ const ActivityLogTable: React.FC = () => {
     return val;
   };
 
-  const applySort = <T extends unknown>(data: T[]): T[] => {
+  const applySort = <T,>(data: T[]): T[] => {
     if (!sortConfig) return data;
     return [...data].sort((a, b) => {
       const aVal = getSortableValue(a, sortConfig.key);

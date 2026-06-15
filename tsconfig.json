@@ -26,5 +26,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["SRC", "vite.config.ts", "vitest.config.ts"],
+  "exclude": ["api", "dist", "node_modules"]
 }

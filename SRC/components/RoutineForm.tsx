@@ -60,6 +60,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
 
   // Delete Confirmation State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Validation State
   const [validationModalOpen, setValidationModalOpen] = useState(false);
@@ -99,7 +100,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     if (mode === 'create') {
       setRoutine(prev => ({
         ...prev,
-        id: Math.random().toString(36).substring(2, 10), // Temporary ID for linking child items
+        id: crypto.randomUUID(),
         version: appConfig.versions && appConfig.versions.length > 0 ? appConfig.versions[appConfig.versions.length - 1] : '',
         routine_type: '',
         capital_structure: '',
@@ -160,7 +161,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   const showFundTypes = ['Investment', 'Financial Reporting'].includes(routine.routine_type || '');
   const showCapitalStructure = routine.routine_type === 'Capital';
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const errors: string[] = [];
     const errorFields: string[] = [];
 
@@ -235,8 +236,15 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       last_edited_date: new Date().toISOString()
     } as Routine;
 
-    dataService.saveRoutine(finalRoutine, reports, mappings, attributes, sheets, rdes, userInputs, user.username);
-    onSave(user.username);
+    setIsSaving(true);
+    try {
+      await dataService.saveRoutine(finalRoutine, reports, mappings, attributes, sheets, rdes, userInputs);
+      onSave(user.username);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to save routine.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = () => {
@@ -247,21 +255,35 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const idToDelete = routineId || routine.id;
     if (idToDelete) {
-      dataService.deleteRoutine(idToDelete);
-      setDeleteModalOpen(false);
-      onSave(user.username); // Navigate back to dashboard
+      setIsSaving(true);
+      try {
+        await dataService.deleteRoutine(idToDelete);
+        setDeleteModalOpen(false);
+        onSave(user.username);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to delete routine.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
-  const handleSaveAsNewVersion = () => {
+  const handleSaveAsNewVersion = async () => {
     if (!newVersionName) return alert("Please select a version");
     if (routine.id) {
-      dataService.createNewVersion(routine.id, newVersionName, user.username);
-      setVersionModalOpen(false);
-      onSave(user.username);
+      setIsSaving(true);
+      try {
+        await dataService.createNewVersion(routine.id, newVersionName);
+        setVersionModalOpen(false);
+        onSave(user.username);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to create a new version.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -284,7 +306,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   // --- Report Management ---
   const addReport = () => {
     const newRep: Report = {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       routine_id: routine.id || 'temp',
       report_name: '',
       is_optional: false
@@ -301,7 +323,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     }
 
     const newRep: Report = {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       routine_id: routine.id || 'temp',
       report_name: val,
       is_optional: false
@@ -321,7 +343,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       const defaults = dataService.getDefaultMappings(value);
       if (defaults && defaults.length > 0) {
         const newMappings: CDMMapping[] = defaults.map(d => ({
-          id: Math.random().toString(36).substring(2),
+          id: crypto.randomUUID(),
           report_id: updated[index].id,
           field_mapping_name: d.field_mapping_name,
           data_type: d.data_type,
@@ -345,7 +367,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   // --- Mapping Management ---
   const addMapping = (reportId: string) => {
     const newMap: CDMMapping = {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       report_id: reportId,
       field_mapping_name: '',
       data_type: config.dataTypes[0] || 'String',
@@ -371,7 +393,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     if (!defaultMappingId) return alert("Please create a CDM Mapping first.");
 
     setAttributes([...attributes, {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       attribute_name: '',
       cdm_mapping_id: defaultMappingId
     }]);
@@ -391,7 +413,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   // --- Sheet Management ---
   const addSheet = () => {
     setSheets([...sheets, {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       routine_id: routine.id || 'temp',
       sheet_name: '',
       order_index: 0 // Will be assigned by service on save
@@ -410,7 +432,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   // --- RDE Management ---
   const addRde = (sheetId: string) => {
     setRdes([...rdes, {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       output_sheet_id: sheetId,
       field_name: '',
       fill_color_format: '#FFFFFF',
@@ -426,7 +448,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   // --- User Input Management ---
   const addUserInput = () => {
     setUserInputs([...userInputs, {
-      id: Math.random().toString(36).substring(2),
+      id: crypto.randomUUID(),
       routine_id: routine.id || 'temp',
       user_input_name: '',
       input_location: INPUT_LOCATIONS[0],
@@ -529,9 +551,10 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
           )}
           <button
             onClick={handleSave}
+            disabled={isSaving}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
           >
-            <Save size={16} /> Save Changes
+            <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>

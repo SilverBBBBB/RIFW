@@ -1,12 +1,31 @@
 
 {
+  "platform": {
+    "apiRuntime": "node:20"
+  },
   "navigationFallback": {
-    "rewrite": "/index.html"
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/assets/*"]
   },
   "routes": [
     {
       "route": "/api/*",
       "allowedRoles": ["anonymous", "authenticated"]
     }
-  ]
+  ],
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Referrer-Policy": "same-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
+  },
+  "responseOverrides": {
+    "401": {
+      "statusCode": 401
+    },
+    "403": {
+      "statusCode": 403
+    }
+  }
 }
