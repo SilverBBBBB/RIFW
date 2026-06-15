@@ -19,6 +19,7 @@ BEGIN
 END;
 
 DECLARE @activityLogForeignKey sysname;
+DECLARE @dropForeignKeySql nvarchar(max);
 SELECT @activityLogForeignKey = fk.name
 FROM sys.foreign_keys fk
 JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
@@ -31,7 +32,9 @@ WHERE parentTable.name = 'ActivityLog'
 
 IF @activityLogForeignKey IS NOT NULL
 BEGIN
-    EXEC('ALTER TABLE dbo.ActivityLog DROP CONSTRAINT ' + QUOTENAME(@activityLogForeignKey));
+    SELECT @dropForeignKeySql =
+        N'ALTER TABLE dbo.ActivityLog DROP CONSTRAINT ' + QUOTENAME(@activityLogForeignKey);
+    EXEC sp_executesql @dropForeignKeySql;
 END;
 
 IF NOT EXISTS (

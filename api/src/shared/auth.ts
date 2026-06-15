@@ -25,6 +25,18 @@ const getJwtSecret = (): string => {
   return secret;
 };
 
+export const normalizeRole = (role: unknown): AppRole | null => {
+  if (typeof role !== "string") return null;
+  switch (role.trim().toLowerCase()) {
+    case "admin":
+      return "Admin";
+    case "user":
+      return "User";
+    default:
+      return null;
+  }
+};
+
 export const signToken = (user: AuthenticatedUser): string =>
   jwt.sign(
     {
@@ -71,10 +83,16 @@ export async function authenticate(
     }
 
     const record = result.recordset[0];
+    const role = normalizeRole(record.Role);
+    if (!role) {
+      context.error("Authentication lookup returned an unsupported role.");
+      return { status: 403, body: "Account role is invalid." };
+    }
+
     const user: AuthenticatedUser = {
       id: record.Id,
       username: record.Username,
-      role: record.Role?.trim() as AppRole,
+      role,
       tokenVersion: record.TokenVersion
     };
 

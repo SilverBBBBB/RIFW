@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { passwordValidationError } from "../src/shared/auth";
+import { normalizeRole, passwordValidationError } from "../src/shared/auth";
 import { compareRoutines } from "../src/functions/CompareRoutine";
 
 test("password policy rejects weak passwords", () => {
@@ -14,4 +14,10 @@ test("routine comparison reads the nested routine object", () => {
     { routine: { routine_name: "After", fund_types: [] } }
   );
   assert.deepEqual(changes.routine_name, { old: "Before", new: "After" });
+});
+
+test("database roles are normalized case-insensitively", () => {
+  assert.equal(normalizeRole("admin"), "Admin");
+  assert.equal(normalizeRole(" User "), "User");
+  assert.equal(normalizeRole("guest"), null);
 });

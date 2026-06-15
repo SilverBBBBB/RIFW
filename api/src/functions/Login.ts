@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import * as bcrypt from 'bcryptjs';
 import { getPool, sql } from '../shared/sql';
-import { signToken } from '../shared/auth';
+import { normalizeRole, signToken } from '../shared/auth';
 
 const attempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 5;
@@ -50,11 +50,17 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
             return { status: 401, body: "Invalid username or password." };
         }
 
+        const role = normalizeRole(user.Role);
+        if (!role) {
+            context.error("Login lookup returned an unsupported role.");
+            return { status: 403, body: "Account role is invalid." };
+        }
+
         attempts.delete(clientKey);
         const token = signToken({
             id: user.Id,
             username: user.Username,
-            role: user.Role.trim(),
+            role,
             tokenVersion: user.TokenVersion
         });
 
@@ -65,7 +71,7 @@ export async function Login(request: HttpRequest, context: InvocationContext): P
                 user: {
                     id: user.Id,
                     username: user.Username,
-                    role: user.Role.trim().toLowerCase()
+                    role: role.toLowerCase()
                 }
             }
         };
