@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, AppConfiguration, UserInput
+  Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, AppConfiguration, UserInput,
+  SheetCatalogItem, SheetClassification
 } from '../types.ts';
 import { dataService } from '../services/dataService.ts';
 import { PREDEFINED_REPORTS, HELPER_ROUTINES_LIST, INPUT_LOCATIONS, TEXTBOX_TYPES } from '../constants.ts';
 import { ChevronDown, ChevronUp, Trash2, Plus, Save, ArrowLeft, Copy, Layout, FileSpreadsheet, Database, Workflow, X, Settings, AlertTriangle, ListChecks, MousePointerClick } from 'lucide-react';
 import ExpandCollapseAllButton from './ExpandCollapseAllButton.tsx';
 import { useAuth } from '../hooks/AuthContext.tsx';
+
+type EditableOutputSheet = OutputSheet & {
+  is_new_sheet?: boolean;
+  pending_classification?: Exclude<SheetClassification, 'Unclassified'> | '';
+};
 
 interface RoutineFormProps {
   mode: 'create' | 'edit';
@@ -37,7 +43,8 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   const [reports, setReports] = useState<Report[]>([]);
   const [mappings, setMappings] = useState<CDMMapping[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
-  const [sheets, setSheets] = useState<OutputSheet[]>([]);
+  const [sheets, setSheets] = useState<EditableOutputSheet[]>([]);
+  const [sheetCatalog, setSheetCatalog] = useState<SheetCatalogItem[]>([]);
   const [rdes, setRdes] = useState<SheetDetail[]>([]);
   const [userInputs, setUserInputs] = useState<UserInput[]>([]);
 
@@ -92,6 +99,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
   useEffect(() => {
     const appConfig = dataService.getConfig();
     setConfig(appConfig);
+    setSheetCatalog(dataService.getSheetCatalog());
 
     // Initialize dropdowns from config or defaults
     setAvailableHelperRoutines(appConfig.helperRoutines || HELPER_ROUTINES_LIST);
@@ -210,6 +218,30 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       errorFields.push("reports");
     }
 
+    const assignedSheetKeys = new Set<string>();
+    sheets.forEach(sheet => {
+      const catalog = dataService.getSheetCatalogItem(sheet.sheet_id);
+      const key = sheet.sheet_id || sheet.sheet_name.trim().toLowerCase();
+      if (!key) {
+        errors.push("Each output sheet must select or create a sheet.");
+        errorFields.push("sheets");
+        return;
+      }
+      if (assignedSheetKeys.has(key)) {
+        errors.push(`Output sheet "${catalog?.sheet_name || sheet.sheet_name}" is already assigned to this routine.`);
+        errorFields.push("sheets");
+      }
+      assignedSheetKeys.add(key);
+      if (sheet.is_new_sheet && (!sheet.pending_classification || !sheet.sheet_name.trim())) {
+        errors.push("New output sheets require a sheet name and Main/Helper classification.");
+        errorFields.push("sheets");
+      }
+      if (catalog?.classification === 'Unclassified' && !sheet.pending_classification) {
+        errors.push(`Classify "${catalog.sheet_name}" as Main or Helper before saving.`);
+        errorFields.push("sheets");
+      }
+    });
+
     if (errors.length > 0) {
       setValidationErrors(errors);
       setHighlightErrorFields(errorFields);
@@ -221,6 +253,9 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       }
       if (errorFields.includes('reports')) {
         sectionsToExpand.add('reports');
+      }
+      if (errorFields.includes('sheets')) {
+        sectionsToExpand.add('sheets');
       }
       setExpandedSections(Array.from(sectionsToExpand));
 
@@ -235,10 +270,16 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       ...routine,
       last_edited_date: new Date().toISOString()
     } as Routine;
+    const finalSheets = sheets.map(sheet => {
+      if (sheet.sheet_id && sheet.pending_classification) {
+        dataService.updateSheetClassification(sheet.sheet_id, sheet.pending_classification);
+      }
+      return sheet;
+    });
 
     setIsSaving(true);
     try {
-      await dataService.saveRoutine(finalRoutine, reports, mappings, attributes, sheets, rdes, userInputs);
+      await dataService.saveRoutine(finalRoutine, reports, mappings, attributes, finalSheets, rdes, userInputs);
       onSave(user.username);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to save routine.');
@@ -416,12 +457,41 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
       id: crypto.randomUUID(),
       routine_id: routine.id || 'temp',
       sheet_name: '',
-      order_index: 0 // Will be assigned by service on save
+      order_index: 0,
+      is_new_sheet: false
     }]);
   };
 
-  const updateSheet = (id: string, name: string) => {
+  const updateSheetSelection = (id: string, value: string) => {
+    if (value === '__new__') {
+      setSheets(sheets.map(s => s.id === id ? {
+        ...s,
+        sheet_id: undefined,
+        sheet_name: '',
+        order_index: 0,
+        is_new_sheet: true,
+        pending_classification: ''
+      } : s));
+      return;
+    }
+    const selected = sheetCatalog.find(sheet => sheet.id === value);
+    if (!selected) return;
+    setSheets(sheets.map(s => s.id === id ? {
+      ...s,
+      sheet_id: selected.id,
+      sheet_name: selected.sheet_name,
+      order_index: selected.global_order,
+      is_new_sheet: false,
+      pending_classification: selected.classification === 'Unclassified' ? '' : selected.classification
+    } : s));
+  };
+
+  const updateSheetName = (id: string, name: string) => {
     setSheets(sheets.map(s => s.id === id ? { ...s, sheet_name: name } : s));
+  };
+
+  const updateSheetClassification = (id: string, classification: Exclude<SheetClassification, 'Unclassified'> | '') => {
+    setSheets(sheets.map(s => s.id === id ? { ...s, pending_classification: classification } : s));
   };
 
   const removeSheet = (id: string) => {
@@ -1030,21 +1100,65 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
             <table className="w-full text-left border-collapse mb-4">
               <thead>
                 <tr className="text-xs uppercase text-slate-500 font-semibold border-b border-slate-200">
-                  <th className="pb-2">Sheet Name</th>
+                  <th className="pb-2">Sheet</th>
+                  <th className="pb-2 w-44">Classification</th>
+                  <th className="pb-2 w-24">Global Order</th>
                   <th className="pb-2 w-16"></th>
                 </tr>
               </thead>
               <tbody>
                 {sheets.map((sheet) => (
                   <tr key={sheet.id} className="border-b border-slate-100 last:border-0">
-                    <td className="py-2">
-                      <input
-                        type="text"
-                        className="w-full border border-slate-300 rounded-md p-1 text-sm"
-                        value={sheet.sheet_name}
-                        onChange={(e) => updateSheet(sheet.id, e.target.value)}
-                        placeholder="Sheet Name"
-                      />
+                    <td className="py-2 pr-2">
+                      <select
+                        className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                        value={sheet.is_new_sheet ? '__new__' : sheet.sheet_id || ''}
+                        onChange={(e) => updateSheetSelection(sheet.id, e.target.value)}
+                      >
+                        <option value="">Select a shared sheet...</option>
+                        {sheetCatalog.map(catalogSheet => (
+                          <option key={catalogSheet.id} value={catalogSheet.id}>
+                            {catalogSheet.sheet_name}
+                          </option>
+                        ))}
+                        <option value="__new__">Create New Sheet...</option>
+                      </select>
+                      {sheet.is_new_sheet && (
+                        <input
+                          type="text"
+                          className="w-full border border-slate-300 rounded-md p-2 text-sm mt-2"
+                          value={sheet.sheet_name}
+                          onChange={(e) => updateSheetName(sheet.id, e.target.value)}
+                          placeholder="New sheet name"
+                        />
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {(() => {
+                        const catalog = dataService.getSheetCatalogItem(sheet.sheet_id);
+                        const needsClassification = sheet.is_new_sheet || catalog?.classification === 'Unclassified';
+                        if (needsClassification) {
+                          return (
+                            <select
+                              className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                              value={sheet.pending_classification || ''}
+                              onChange={(e) => updateSheetClassification(sheet.id, e.target.value as Exclude<SheetClassification, 'Unclassified'> | '')}
+                            >
+                              <option value="">Select...</option>
+                              <option value="Main">Main</option>
+                              <option value="Helper">Helper</option>
+                            </select>
+                          );
+                        }
+                        return (
+                          <span className={`text-xs px-2 py-1 rounded ${catalog?.classification === 'Main' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'}`}>
+                            {catalog?.classification || 'Unclassified'}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="py-2 pr-2 text-sm text-slate-600 font-mono">
+                      {sheet.sheet_id ? dataService.getSheetCatalogItem(sheet.sheet_id)?.global_order || '-' : 'New'}
                     </td>
                     <td className="py-2 text-right">
                       <button

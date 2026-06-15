@@ -13,7 +13,7 @@ const TEMPLATE_HEADERS = {
     Reports: ['Routine_Ref_ID', 'Report Name', 'Is Optional'],
     CDM_Mappings: ['Routine_Ref_ID', 'Report Name', 'Field Name', 'Data Type', 'Required?', 'Blanks Allowed?'],
     Attributes: ['Routine_Ref_ID', 'Report Name', 'CDM Field Name', 'Attribute Name'],
-    Output_Sheets: ['Routine_Ref_ID', 'Sheet Name', 'Order Index'],
+    Output_Sheets: ['Routine_Ref_ID', 'Sheet Name', 'Classification', 'Order Index'],
     Sheet_Details_RDE: ['Routine_Ref_ID', 'Sheet Name', 'Field Name', 'Data Format', 'Fill Color', 'Column Order', 'Verification Required Status', 'Document Type', 'Verification RDE Name', 'Description'],
     User_Inputs: ['Routine_Ref_ID', 'Input Name', 'Location', 'Type', 'Validations', 'Min', 'Max', 'Mandatory?']
 };
@@ -64,6 +64,7 @@ const INSTRUCTIONS_CONTENT = [
     ['5. Output_Sheets'],
     ['   - Routine_Ref_ID: Must match a Ref_ID from the Routines tab'],
     ['   - Sheet Name: Name of the output sheet/tab'],
+    ['   - Classification: "Main" or "Helper"; must be consistent for the same Sheet Name'],
     ['   - Order Index: Numeric order (0, 1, 2...)'],
     [''],
     ['6. Sheet_Details_RDE'],
@@ -231,6 +232,29 @@ const BulkImportModal: React.FC<BulkImportModalProps> = ({ onClose, onImportComp
         checkRefId(data.outputSheets, 'Output_Sheets');
         checkRefId(data.sheetDetails, 'Sheet_Details_RDE');
         checkRefId(data.userInputs, 'User_Inputs');
+
+        const classificationBySheet = new Map<string, string>();
+        data.outputSheets.forEach((sheet, idx) => {
+            const sheetName = String(sheet['Sheet Name'] || '').trim();
+            const key = sheetName.toLowerCase();
+            const classification = String(sheet['Classification'] || '').trim();
+            if (!['Main', 'Helper', 'Unclassified', ''].includes(classification)) {
+                errors.push({
+                    tab: 'Output_Sheets',
+                    row: idx + 2,
+                    message: 'Classification must be "Main" or "Helper"'
+                });
+            }
+            const existing = classificationBySheet.get(key);
+            if (existing && classification && existing !== classification) {
+                errors.push({
+                    tab: 'Output_Sheets',
+                    row: idx + 2,
+                    message: `Sheet "${sheetName}" has conflicting classifications`
+                });
+            }
+            if (key && classification) classificationBySheet.set(key, classification);
+        });
 
         // Bot readiness validation for SheetDetails
         data.sheetDetails.forEach((detail, idx) => {

@@ -8,6 +8,7 @@ interface RoutinePayload {
   reports?: Record<string, any>[];
   mappings?: Record<string, any>[];
   attributes?: Record<string, any>[];
+  sheetCatalog?: Record<string, any>[];
   outputSheets?: Record<string, any>[];
   sheetDetails?: Record<string, any>[];
   userInputs?: Record<string, any>[];
@@ -29,6 +30,7 @@ const validatePayload = (body: RoutinePayload): string | null => {
     body.reports || [],
     body.mappings || [],
     body.attributes || [],
+    body.sheetCatalog || [],
     body.outputSheets || [],
     body.sheetDetails || [],
     body.userInputs || []
@@ -40,13 +42,28 @@ const validatePayload = (body: RoutinePayload): string | null => {
   const reportIds = new Set((body.reports || []).map(item => item.id));
   const mappingIds = new Set((body.mappings || []).map(item => item.id));
   const sheetIds = new Set((body.outputSheets || []).map(item => item.id));
+  const assignedSheetIds = new Set<string>();
   if ((body.mappings || []).some(item => !reportIds.has(item.report_id))) return "A mapping references an unknown report.";
   if ((body.attributes || []).some(item => !mappingIds.has(item.cdm_mapping_id))) return "An attribute references an unknown mapping.";
   if ((body.sheetDetails || []).some(item => !sheetIds.has(item.output_sheet_id))) return "A sheet detail references an unknown sheet.";
   if ((body.outputSheets || []).some(item => item.routine_id !== routine.id)) return "A sheet references the wrong routine.";
+  for (const item of body.outputSheets || []) {
+    const key = item.sheet_id || (typeof item.sheet_name === "string" ? item.sheet_name.trim().toLowerCase() : "");
+    if (!key) return "Each output sheet must reference a shared sheet.";
+    if (assignedSheetIds.has(key)) return "A routine cannot reference the same sheet more than once.";
+    assignedSheetIds.add(key);
+  }
   if ((body.reports || []).some(item => item.routine_id !== routine.id)) return "A report references the wrong routine.";
   if ((body.userInputs || []).some(item => item.routine_id !== routine.id)) return "A user input references the wrong routine.";
   return null;
+};
+
+const normalizeSheetName = (value: unknown): string =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const normalizeClassification = (value: unknown): "Main" | "Helper" | "Unclassified" => {
+  if (value === "Main" || value === "Helper" || value === "Unclassified") return value;
+  return "Unclassified";
 };
 
 const normalizeRoutine = (routine: Record<string, any>) => ({
@@ -71,7 +88,7 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
   const validationError = validatePayload(body);
   if (validationError) return { status: 400, body: validationError };
 
-  const { routine, reports = [], mappings = [], attributes = [], outputSheets = [], sheetDetails = [], userInputs = [] } = body;
+  const { routine, reports = [], mappings = [], attributes = [], sheetCatalog = [], outputSheets = [], sheetDetails = [], userInputs = [] } = body;
   const pool = await getPool();
   const transaction = new sql.Transaction(pool);
 
@@ -169,11 +186,75 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
         .input("attribute_name", sql.NVarChar(255), item.attribute_name)
         .query("INSERT INTO Attributes (id,cdm_mapping_id,attribute_name) VALUES (@id,@cdm_mapping_id,@attribute_name)");
     }
+
+    const catalogById = new Map(sheetCatalog.map(item => [item.id, item]));
+    const catalogByNameKey = new Map(sheetCatalog.map(item => [normalizeSheetName(item.sheet_name), item]));
+    const preparedSheets: Record<string, any>[] = [];
+
     for (const item of outputSheets) {
+      const payloadCatalog = (item.sheet_id ? catalogById.get(item.sheet_id) : undefined)
+        || catalogByNameKey.get(normalizeSheetName(item.sheet_name))
+        || item;
+      const sheetName = String(payloadCatalog.sheet_name || item.sheet_name || "").trim();
+      const nameKey = normalizeSheetName(sheetName);
+      if (!sheetName || !nameKey) {
+        await transaction.rollback();
+        return { status: 400, body: "Each output sheet must have a name." };
+      }
+      const classification = normalizeClassification(payloadCatalog.classification);
+      const requestedId = item.sheet_id || payloadCatalog.id;
+
+      const existingCatalogResult = await new sql.Request(transaction)
+        .input("id", sql.NVarChar(50), requestedId || "")
+        .input("name_key", sql.NVarChar(255), nameKey)
+        .query("SELECT TOP 1 * FROM SheetCatalog WITH (UPDLOCK, HOLDLOCK) WHERE id=@id OR name_key=@name_key");
+      const existingCatalog = existingCatalogResult.recordset[0];
+      let sheetId = existingCatalog?.id || requestedId || item.id;
+
+      if (existingCatalog) {
+        const changingCatalog =
+          existingCatalog.sheet_name !== sheetName ||
+          existingCatalog.classification !== classification;
+        if (changingCatalog && payloadCatalog.row_version) {
+          const suppliedVersion = Buffer.from(payloadCatalog.row_version, "base64");
+          if (!Buffer.isBuffer(existingCatalog.row_version) || !existingCatalog.row_version.equals(suppliedVersion)) {
+            await transaction.rollback();
+            return { status: 409, body: "A sheet was updated by another user. Reload and retry." };
+          }
+        }
+        if (changingCatalog) {
+          await new sql.Request(transaction)
+            .input("id", sql.NVarChar(50), sheetId)
+            .input("sheet_name", sql.NVarChar(255), sheetName)
+            .input("classification", sql.NVarChar(20), classification)
+            .query("UPDATE SheetCatalog SET sheet_name=@sheet_name, classification=@classification WHERE id=@id");
+        }
+      } else {
+        const maxOrderResult = await new sql.Request(transaction)
+          .query("SELECT COALESCE(MAX(global_order), 0) + 1 AS next_order FROM SheetCatalog WITH (UPDLOCK, HOLDLOCK)");
+        const nextOrder = maxOrderResult.recordset[0]?.next_order || 1;
+        await new sql.Request(transaction)
+          .input("id", sql.NVarChar(50), sheetId)
+          .input("sheet_name", sql.NVarChar(255), sheetName)
+          .input("name_key", sql.NVarChar(255), nameKey)
+          .input("classification", sql.NVarChar(20), classification)
+          .input("global_order", sql.Int, nextOrder)
+          .query("INSERT INTO SheetCatalog (id,sheet_name,name_key,classification,global_order) VALUES (@id,@sheet_name,@name_key,@classification,@global_order)");
+      }
+
+      preparedSheets.push({
+        ...item,
+        sheet_id: sheetId,
+        sheet_name: sheetName
+      });
+    }
+
+    for (const item of preparedSheets) {
       await new sql.Request(transaction)
         .input("id", sql.NVarChar(50), item.id).input("routine_id", sql.NVarChar(50), routine.id)
+        .input("sheet_id", sql.NVarChar(50), item.sheet_id)
         .input("sheet_name", sql.NVarChar(255), item.sheet_name).input("order_index", sql.Int, item.order_index || 0)
-        .query("INSERT INTO OutputSheets (id,routine_id,sheet_name,order_index) VALUES (@id,@routine_id,@sheet_name,@order_index)");
+        .query("INSERT INTO OutputSheets (id,routine_id,sheet_id,sheet_name,order_index) VALUES (@id,@routine_id,@sheet_id,@sheet_name,@order_index)");
     }
     for (const item of sheetDetails) {
       await new sql.Request(transaction)

@@ -1,9 +1,11 @@
 import {
   Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, ActivityLog,
-  RoutineFilters, AppConfiguration, ConfigCategory, DefaultMapping
+  RoutineFilters, AppConfiguration, ConfigCategory, DefaultMapping, SheetCatalogItem,
+  SheetCatalogViewRow, SheetClassification
 } from '../types';
 import {
   MOCK_ROUTINES, MOCK_REPORTS, MOCK_CDM_MAPPINGS, MOCK_ATTRIBUTES, MOCK_OUTPUT_SHEETS, MOCK_SHEET_DETAILS, MOCK_USER_INPUTS,
+  MOCK_SHEET_CATALOG,
   VERSIONS, ROUTINE_TYPES, FUND_TYPES, REGIONS, CAPITAL_STRUCTURES, DATA_TYPES, PREDEFINED_REPORTS, HELPER_ROUTINES_LIST
 } from '../constants';
 
@@ -12,6 +14,7 @@ class DataService {
   private reports: Report[] = [];
   private cdmMappings: CDMMapping[] = [];
   private attributes: Attribute[] = [];
+  private sheetCatalog: SheetCatalogItem[] = [];
   private outputSheets: OutputSheet[] = [];
   private sheetDetails: SheetDetail[] = [];
   private userInputs: UserInput[] = [];
@@ -70,6 +73,8 @@ class DataService {
       this.cdmMappings = data.cdmMappings;
       this.attributes = data.attributes;
       this.outputSheets = data.outputSheets;
+      this.sheetCatalog = data.sheetCatalog || this.buildSheetCatalogFromOutputSheets(this.outputSheets);
+      this.hydrateOutputSheetsFromCatalog();
       this.sheetDetails = data.sheetDetails;
       this.userInputs = data.userInputs || [];
       this.activityLogs = data.activityLogs || [];
@@ -109,6 +114,8 @@ class DataService {
         this.cdmMappings = data.cdmMappings || [];
         this.attributes = data.attributes || [];
         this.outputSheets = data.outputSheets || [];
+        this.sheetCatalog = data.sheetCatalog || this.buildSheetCatalogFromOutputSheets(this.outputSheets);
+        this.hydrateOutputSheetsFromCatalog();
         this.sheetDetails = data.sheetDetails || [];
         this.userInputs = data.userInputs || [];
         this.activityLogs = data.activityLogs || [];
@@ -129,7 +136,9 @@ class DataService {
     this.reports = [...MOCK_REPORTS];
     this.cdmMappings = [...MOCK_CDM_MAPPINGS];
     this.attributes = [...MOCK_ATTRIBUTES];
+    this.sheetCatalog = [...MOCK_SHEET_CATALOG];
     this.outputSheets = [...MOCK_OUTPUT_SHEETS];
+    this.hydrateOutputSheetsFromCatalog();
     this.sheetDetails = [...MOCK_SHEET_DETAILS];
     this.userInputs = [...MOCK_USER_INPUTS];
     this.activityLogs = [];
@@ -156,6 +165,7 @@ class DataService {
       reports: this.reports,
       cdmMappings: this.cdmMappings,
       attributes: this.attributes,
+      sheetCatalog: this.sheetCatalog,
       outputSheets: this.outputSheets,
       sheetDetails: this.sheetDetails,
       userInputs: this.userInputs,
@@ -184,8 +194,10 @@ class DataService {
     const sheetIds = outputSheets.map(s => s.id);
     const sheetDetails = this.sheetDetails.filter(d => sheetIds.includes(d.output_sheet_id));
     const userInputs = this.userInputs.filter(u => u.routine_id === routineId);
+    const catalogIds = new Set(outputSheets.map(s => s.sheet_id).filter(Boolean));
+    const sheetCatalog = this.sheetCatalog.filter(sheet => catalogIds.has(sheet.id));
 
-    const payload = { routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs };
+    const payload = { routine, reports, mappings, attributes, outputSheets, sheetDetails, userInputs, sheetCatalog };
     const response = await this.apiFetch('/api/routine', {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -319,7 +331,11 @@ class DataService {
   getOutputSheetsByRoutineId(routineId: string): OutputSheet[] {
     return this.outputSheets
       .filter(os => os.routine_id === routineId)
-      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+      .sort((a, b) => {
+        const aCatalog = a.sheet_id ? this.sheetCatalog.find(sheet => sheet.id === a.sheet_id) : undefined;
+        const bCatalog = b.sheet_id ? this.sheetCatalog.find(sheet => sheet.id === b.sheet_id) : undefined;
+        return (aCatalog?.global_order || a.order_index || 0) - (bCatalog?.global_order || b.order_index || 0);
+      });
   }
 
   getSheetDetailsBySheetId(sheetId: string): SheetDetail[] {
@@ -332,6 +348,57 @@ class DataService {
 
   getActivityLogs(): ActivityLog[] {
     return this.activityLogs;
+  }
+
+  getSheetCatalog(): SheetCatalogItem[] {
+    return [...this.sheetCatalog].sort((a, b) => a.global_order - b.global_order);
+  }
+
+  createSheetCatalogEntry(sheetName: string, classification: Exclude<SheetClassification, 'Unclassified'>): SheetCatalogItem {
+    const nameKey = this.normalizeSheetName(sheetName);
+    const existing = this.sheetCatalog.find(sheet => sheet.name_key === nameKey);
+    if (existing) return existing;
+    const created = this.createSheetCatalogItem(sheetName, classification);
+    this.sheetCatalog.push(created);
+    return created;
+  }
+
+  updateSheetClassification(sheetId: string, classification: SheetClassification): void {
+    this.sheetCatalog = this.sheetCatalog.map(sheet =>
+      sheet.id === sheetId ? { ...sheet, classification } : sheet
+    );
+  }
+
+  async saveSheetClassification(sheetId: string, classification: SheetClassification): Promise<void> {
+    const previousCatalog = structuredClone(this.sheetCatalog);
+    const sheet = this.sheetCatalog.find(item => item.id === sheetId);
+    if (!sheet) throw new Error('Sheet not found.');
+    this.updateSheetClassification(sheetId, classification);
+
+    if (!this.useApi) {
+      this.saveToLocalStorage();
+      return;
+    }
+
+    try {
+      const response = await this.apiFetch('/api/sheets/catalog', {
+        method: 'POST',
+        body: JSON.stringify({ id: sheetId, classification, row_version: sheet.row_version })
+      });
+      if (!response.ok) throw new Error(await response.text() || 'Failed to update sheet classification.');
+      const result = await response.json();
+      this.sheetCatalog = this.sheetCatalog.map(item =>
+        item.id === sheetId ? { ...item, row_version: result.row_version || item.row_version } : item
+      );
+    } catch (error) {
+      this.sheetCatalog = previousCatalog;
+      throw error;
+    }
+  }
+
+  getSheetCatalogItem(sheetId?: string): SheetCatalogItem | undefined {
+    if (!sheetId) return undefined;
+    return this.sheetCatalog.find(sheet => sheet.id === sheetId);
   }
 
   // --- VIEWS ---
@@ -377,28 +444,47 @@ class DataService {
       });
   }
 
-  getSheetsView(filters: RoutineFilters) {
+  getSheetsView(filters: RoutineFilters): SheetCatalogViewRow[] {
     const routines = this.getRoutines(filters);
-    return this.outputSheets
-      .filter(os => routines.some(r => r.id === os.routine_id))
-      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-      .map(os => {
-        const routine = routines.find(r => r.id === os.routine_id);
-        return { ...os, routine_name: routine?.routine_name || 'Unknown' };
+    const routineById = new Map(routines.map(r => [r.id, r]));
+    const routinesByCatalogId = new Map<string, Set<string>>();
+
+    this.outputSheets.forEach(os => {
+      if (!os.sheet_id || !routineById.has(os.routine_id)) return;
+      const routine = routineById.get(os.routine_id)!;
+      const names = routinesByCatalogId.get(os.sheet_id) || new Set<string>();
+      names.add(routine.routine_name);
+      routinesByCatalogId.set(os.sheet_id, names);
+    });
+
+    return this.sheetCatalog
+      .filter(sheet => routinesByCatalogId.has(sheet.id))
+      .sort((a, b) => a.global_order - b.global_order)
+      .map(sheet => {
+        const routineNames = Array.from(routinesByCatalogId.get(sheet.id) || []).sort();
+        return {
+          ...sheet,
+          routine_names: routineNames,
+          routines_display: routineNames.join(', ')
+        };
       });
   }
 
   getSheetDetailsView(filters: RoutineFilters) {
-    const sheets = this.getSheetsView(filters);
+    const routines = this.getRoutines(filters);
+    const routineIds = routines.map(r => r.id);
+    const sheets = this.outputSheets.filter(sheet => routineIds.includes(sheet.routine_id));
     const sheetIds = sheets.map(s => s.id);
     return this.sheetDetails
       .filter(sd => sheetIds.includes(sd.output_sheet_id))
       .map(sd => {
         const sheet = sheets.find(s => s.id === sd.output_sheet_id);
+        const catalog = sheet?.sheet_id ? this.sheetCatalog.find(item => item.id === sheet.sheet_id) : undefined;
+        const routine = sheet ? routines.find(r => r.id === sheet.routine_id) : undefined;
         return {
           ...sd,
-          sheet_name: sheet?.sheet_name || 'Unknown',
-          routine_name: sheet?.routine_name || 'Unknown'
+          sheet_name: catalog?.sheet_name || sheet?.sheet_name || 'Unknown',
+          routine_name: routine?.routine_name || 'Unknown'
         };
       });
   }
@@ -430,6 +516,7 @@ class DataService {
       reports: structuredClone(this.reports),
       cdmMappings: structuredClone(this.cdmMappings),
       attributes: structuredClone(this.attributes),
+      sheetCatalog: structuredClone(this.sheetCatalog),
       outputSheets: structuredClone(this.outputSheets),
       sheetDetails: structuredClone(this.sheetDetails),
       userInputs: structuredClone(this.userInputs)
@@ -453,16 +540,7 @@ class DataService {
     this.attributes = this.attributes.filter(a => !currentMappingIds.includes(a.cdm_mapping_id));
 
     const currentSheetIds = this.outputSheets.filter(s => s.routine_id === routine.id).map(s => s.id);
-    let maxOrder = this.outputSheets
-      .filter(sheet => sheet.routine_id === routine.id)
-      .reduce((max, sheet) => Math.max(max, sheet.order_index || 0), 0);
-    const finalOutputSheets = outputSheets.map(s => {
-      if (s.order_index === undefined || s.order_index === 0) {
-        maxOrder++;
-        return { ...s, order_index: maxOrder };
-      }
-      return s;
-    });
+    const finalOutputSheets = this.prepareOutputSheetsForSave(outputSheets, routine.id);
 
     this.outputSheets = this.outputSheets.filter(s => s.routine_id !== routine.id);
     this.sheetDetails = this.sheetDetails.filter(sd => !currentSheetIds.includes(sd.output_sheet_id));
@@ -485,6 +563,7 @@ class DataService {
       this.reports = snapshot.reports;
       this.cdmMappings = snapshot.cdmMappings;
       this.attributes = snapshot.attributes;
+      this.sheetCatalog = snapshot.sheetCatalog;
       this.outputSheets = snapshot.outputSheets;
       this.sheetDetails = snapshot.sheetDetails;
       this.userInputs = snapshot.userInputs;
@@ -534,35 +613,48 @@ class DataService {
     }
   }
 
-  async updateSheetOrders(orderedSheets: OutputSheet[]): Promise<void> {
-    const routineIds = new Set(orderedSheets.map(sheet => sheet.routine_id));
-    if (routineIds.size !== 1) throw new Error('Sheets can only be reordered within one routine at a time.');
-    const previousSheets = structuredClone(this.outputSheets);
-    const updateMap = new Map(orderedSheets.map(s => [s.id, s.order_index]));
+  async updateSheetCatalogOrder(orderedSheets: SheetCatalogItem[]): Promise<void> {
+    const previousCatalog = structuredClone(this.sheetCatalog);
+    const orderedMap = new Map(orderedSheets.map((sheet, index) => [sheet.id, index + 1]));
 
-    // Update local state
-    this.outputSheets = this.outputSheets.map(sheet => {
-      if (updateMap.has(sheet.id)) {
-        return { ...sheet, order_index: updateMap.get(sheet.id)! };
-      }
-      return sheet;
-    });
+    this.sheetCatalog = this.sheetCatalog
+      .map(sheet => orderedMap.has(sheet.id) ? { ...sheet, global_order: orderedMap.get(sheet.id)! } : sheet)
+      .sort((a, b) => {
+        if (orderedMap.has(a.id) && orderedMap.has(b.id)) return orderedMap.get(a.id)! - orderedMap.get(b.id)!;
+        if (orderedMap.has(a.id)) return -1;
+        if (orderedMap.has(b.id)) return 1;
+        return a.global_order - b.global_order;
+      })
+      .map((sheet, index) => ({ ...sheet, global_order: index + 1 }));
 
-    // Identify all affected routines
-    const affectedRoutineIds = new Set<string>();
-    orderedSheets.forEach(s => {
-      if (s.routine_id) affectedRoutineIds.add(s.routine_id);
-    });
+    if (!this.useApi) {
+      this.saveToLocalStorage();
+      return;
+    }
 
-    // Save each affected routine
     try {
-      for (const routineId of affectedRoutineIds) {
-        const rowVersion = await this.saveToApi(routineId);
-        const routine = this.routines.find(item => item.id === routineId);
-        if (routine && rowVersion) routine.row_version = rowVersion;
+      const response = await this.apiFetch('/api/sheets/catalog/order', {
+        method: 'POST',
+        body: JSON.stringify({
+          sheets: this.sheetCatalog
+            .map(sheet => ({ id: sheet.id, global_order: sheet.global_order, row_version: sheet.row_version }))
+        })
+      });
+      if (!response.ok) throw new Error(await response.text() || 'Failed to reorder sheets.');
+      const result = await response.json();
+      if (Array.isArray(result.sheetCatalog)) {
+        const versionMap = new Map<string, string>(
+          result.sheetCatalog
+            .filter((sheet: Partial<SheetCatalogItem>) => typeof sheet.id === 'string' && typeof sheet.row_version === 'string')
+            .map((sheet: Partial<SheetCatalogItem>) => [sheet.id!, sheet.row_version!])
+        );
+        this.sheetCatalog = this.sheetCatalog.map(sheet => ({
+          ...sheet,
+          row_version: versionMap.get(sheet.id) || sheet.row_version
+        }));
       }
     } catch (error) {
-      this.outputSheets = previousSheets;
+      this.sheetCatalog = previousCatalog;
       throw error;
     }
   }
@@ -608,13 +700,14 @@ class DataService {
     const newSheets: OutputSheet[] = [];
     const newSheetDetails: SheetDetail[] = [];
 
-    originalSheets.forEach((sheet, index) => {
+    originalSheets.forEach((sheet) => {
       const newSheetId = generateId();
+      const catalog = sheet.sheet_id ? this.sheetCatalog.find(item => item.id === sheet.sheet_id) : undefined;
       newSheets.push({
         ...sheet,
         id: newSheetId,
         routine_id: newRoutineId,
-        order_index: index + 1
+        order_index: catalog?.global_order || sheet.order_index
       });
 
       const originalDetails = this.getSheetDetailsBySheetId(sheet.id);
@@ -686,6 +779,94 @@ class DataService {
     // Refresh data from API after successful import
     this.isInitialized = false;
     await this.initialize();
+  }
+
+  private normalizeSheetName(name: string): string {
+    return name.trim().toLowerCase();
+  }
+
+  private buildSheetCatalogFromOutputSheets(outputSheets: OutputSheet[]): SheetCatalogItem[] {
+    const byKey = new Map<string, { sheet_name: string; global_order: number }>();
+    outputSheets.forEach(sheet => {
+      const sheetName = sheet.sheet_name?.trim();
+      if (!sheetName) return;
+      const key = this.normalizeSheetName(sheetName);
+      const order = sheet.order_index || Number.MAX_SAFE_INTEGER;
+      const existing = byKey.get(key);
+      if (!existing || order < existing.global_order || (order === existing.global_order && sheetName < existing.sheet_name)) {
+        byKey.set(key, { sheet_name: sheetName, global_order: order });
+      }
+    });
+
+    return Array.from(byKey.entries())
+      .sort((a, b) => {
+        const orderDiff = a[1].global_order - b[1].global_order;
+        if (orderDiff !== 0) return orderDiff;
+        return a[1].sheet_name.localeCompare(b[1].sheet_name);
+      })
+      .map(([nameKey, sheet], index) => ({
+        id: `local_sheet_${nameKey.replace(/[^a-z0-9]+/g, '_') || index}`,
+        sheet_name: sheet.sheet_name,
+        name_key: nameKey,
+        classification: 'Unclassified',
+        global_order: index + 1
+      }));
+  }
+
+  private hydrateOutputSheetsFromCatalog(): void {
+    const catalogById = new Map(this.sheetCatalog.map(sheet => [sheet.id, sheet]));
+    const catalogByKey = new Map(this.sheetCatalog.map(sheet => [sheet.name_key, sheet]));
+
+    this.outputSheets = this.outputSheets.map(sheet => {
+      let catalog = sheet.sheet_id ? catalogById.get(sheet.sheet_id) : undefined;
+      if (!catalog && sheet.sheet_name) {
+        catalog = catalogByKey.get(this.normalizeSheetName(sheet.sheet_name));
+      }
+      return {
+        ...sheet,
+        sheet_id: catalog?.id || sheet.sheet_id,
+        sheet_name: catalog?.sheet_name || sheet.sheet_name,
+        order_index: catalog?.global_order || sheet.order_index || 0
+      };
+    });
+  }
+
+  private createSheetCatalogItem(sheetName: string, classification: SheetClassification): SheetCatalogItem {
+    const trimmed = sheetName.trim();
+    const nextOrder = this.sheetCatalog.reduce((max, sheet) => Math.max(max, sheet.global_order || 0), 0) + 1;
+    return {
+      id: crypto.randomUUID(),
+      sheet_name: trimmed,
+      name_key: this.normalizeSheetName(trimmed),
+      classification,
+      global_order: nextOrder
+    };
+  }
+
+  private prepareOutputSheetsForSave(outputSheets: OutputSheet[], routineId: string): OutputSheet[] {
+    const usedSheetIds = new Set<string>();
+    return outputSheets.map(sheet => {
+      let catalog = sheet.sheet_id ? this.sheetCatalog.find(item => item.id === sheet.sheet_id) : undefined;
+      if (!catalog && sheet.sheet_name?.trim()) {
+        catalog = this.sheetCatalog.find(item => item.name_key === this.normalizeSheetName(sheet.sheet_name));
+      }
+      if (!catalog && sheet.sheet_name?.trim()) {
+        const pendingClassification = (sheet as OutputSheet & { pending_classification?: SheetClassification }).pending_classification;
+        catalog = this.createSheetCatalogItem(sheet.sheet_name, pendingClassification || 'Unclassified');
+        this.sheetCatalog.push(catalog);
+      }
+      if (catalog) {
+        if (usedSheetIds.has(catalog.id)) throw new Error(`Sheet "${catalog.sheet_name}" is already assigned to this routine.`);
+        usedSheetIds.add(catalog.id);
+      }
+      return {
+        ...sheet,
+        routine_id: routineId,
+        sheet_id: catalog?.id || sheet.sheet_id,
+        sheet_name: catalog?.sheet_name || sheet.sheet_name,
+        order_index: catalog?.global_order || sheet.order_index || 0
+      };
+    });
   }
 
 }

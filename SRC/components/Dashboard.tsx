@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Routine, RoutineFilters, ReportViewRow, CDMMappingViewRow,
-  AttributeViewRow, OutputSheet, SheetDetail, UserInputViewRow
+  AttributeViewRow, SheetDetail, UserInputViewRow, SheetCatalogViewRow, SheetClassification
 } from '../types.ts';
 import { dataService } from '../services/dataService.ts';
 import ActivityLogTable from './ActivityLogTable';
@@ -47,7 +47,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const [reports, setReports] = useState<ReportViewRow[]>([]);
   const [mappings, setMappings] = useState<CDMMappingViewRow[]>([]);
   const [attributes, setAttributes] = useState<AttributeViewRow[]>([]);
-  const [sheets, setSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
+  const [sheets, setSheets] = useState<SheetCatalogViewRow[]>([]);
   const [sheetDetails, setSheetDetails] = useState<(SheetDetail & { sheet_name: string })[]>([]);
   const [userInputs, setUserInputs] = useState<UserInputViewRow[]>([]);
 
@@ -56,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   // Drag and Drop State
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [localSheets, setLocalSheets] = useState<(OutputSheet & { routine_name: string })[]>([]);
+  const [localSheets, setLocalSheets] = useState<SheetCatalogViewRow[]>([]);
   const { hasRole } = useAuth();
 
   const loadData = (currentFilters: RoutineFilters = filters) => {
@@ -244,9 +244,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
   const processedSheets = useMemo(() => {
     const filtered = localSheets.filter(s => {
       return (
-        filterValueMatches(s.routine_name, columnFilters['routine_name']) &&
         filterValueMatches(s.sheet_name, columnFilters['sheet_name']) &&
-        filterValueMatches(s.order_index, columnFilters['order_index'])
+        filterValueMatches(s.classification, columnFilters['classification']) &&
+        filterValueMatches(s.global_order, columnFilters['global_order']) &&
+        filterValueMatches(s.routines_display, columnFilters['routines_display'])
       );
     });
     return applySort(filtered);
@@ -304,37 +305,40 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   const handleDrop = async (dropIndex: number) => {
     if (draggedItemIndex === null || draggedItemIndex === dropIndex) return;
-    if (sortConfig || Object.keys(columnFilters).length > 0) {
-      alert('Clear sheet filters and sorting before reordering.');
+    if (sortConfig || Object.keys(columnFilters).length > 0 || filters.version || filters.startDate || filters.endDate) {
+      alert('Clear version/date filters, sheet filters, and sorting before reordering.');
       setDraggedItemIndex(null);
       return;
     }
     const draggedItem = localSheets[draggedItemIndex];
     const targetItem = localSheets[dropIndex];
-    if (!draggedItem || !targetItem || draggedItem.routine_id !== targetItem.routine_id) {
-      alert('Sheets can only be reordered within the same routine.');
+    if (!draggedItem || !targetItem) {
       setDraggedItemIndex(null);
       return;
     }
 
-    const routineSheets = localSheets.filter(item => item.routine_id === draggedItem.routine_id);
-    const sourceRoutineIndex = routineSheets.findIndex(item => item.id === draggedItem.id);
-    const targetRoutineIndex = routineSheets.findIndex(item => item.id === targetItem.id);
-    const reorderedRoutineSheets = [...routineSheets];
-    const [moved] = reorderedRoutineSheets.splice(sourceRoutineIndex, 1);
-    reorderedRoutineSheets.splice(targetRoutineIndex, 0, moved);
-    const itemsToUpdate = reorderedRoutineSheets.map((item, idx) => ({ ...item, order_index: idx + 1 }));
-    const updateMap = new Map(itemsToUpdate.map(item => [item.id, item]));
-    const nextSheets = localSheets.map(item => updateMap.get(item.id) || item);
+    const reorderedSheets = [...localSheets];
+    const [moved] = reorderedSheets.splice(draggedItemIndex, 1);
+    reorderedSheets.splice(dropIndex, 0, moved);
+    const nextSheets = reorderedSheets.map((item, idx) => ({ ...item, global_order: idx + 1 }));
 
     setLocalSheets(nextSheets);
     setDraggedItemIndex(null);
     try {
-      await dataService.updateSheetOrders(itemsToUpdate);
+      await dataService.updateSheetCatalogOrder(nextSheets);
       loadData();
     } catch (error) {
       setLocalSheets(sheets);
       alert(error instanceof Error ? error.message : 'Failed to reorder sheets.');
+    }
+  };
+
+  const handleSheetClassificationChange = async (sheetId: string, classification: SheetClassification) => {
+    try {
+      await dataService.saveSheetClassification(sheetId, classification);
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update sheet classification.');
     }
   };
 
@@ -715,9 +719,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
               <thead>
                 <tr>
                   <th className="w-10 p-3 border-b border-slate-300 bg-slate-100"></th>
-                  <ColumnHeader label="Order" columnKey="order_index" minWidth="80px" />
-                  <ColumnHeader label="Routine" columnKey="routine_name" minWidth="200px" />
+                  <ColumnHeader label="Global Order" columnKey="global_order" minWidth="120px" />
                   <ColumnHeader label="Sheet Name" columnKey="sheet_name" minWidth="250px" />
+                  <ColumnHeader label="Classification" columnKey="classification" minWidth="140px" />
+                  <ColumnHeader label="Routines" columnKey="routines_display" minWidth="350px" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -731,12 +736,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                     onDrop={() => handleDrop(idx)}
                   >
                     <td className="p-3 text-slate-400 cursor-move text-center"><GripVertical size={16} /></td>
-                    <td className="p-3 text-sm text-slate-600 font-mono">{row.order_index}</td>
-                    <td className="p-3 text-sm text-slate-600">{row.routine_name}</td>
+                    <td className="p-3 text-sm text-slate-600 font-mono">{row.global_order}</td>
                     <td className="p-3 text-sm font-medium text-slate-800">{row.sheet_name}</td>
+                    <td className="p-3 text-sm">
+                      {hasRole(['admin', 'user']) ? (
+                        <select
+                          className="border border-slate-300 rounded px-2 py-1 text-sm bg-white"
+                          value={row.classification}
+                          onChange={(e) => handleSheetClassificationChange(row.id, e.target.value as SheetClassification)}
+                        >
+                          <option value="Unclassified">Unclassified</option>
+                          <option value="Main">Main</option>
+                          <option value="Helper">Helper</option>
+                        </select>
+                      ) : (
+                        <span className={`text-xs px-2 py-1 rounded ${row.classification === 'Main' ? 'bg-blue-100 text-blue-800' : row.classification === 'Helper' ? 'bg-slate-100 text-slate-700' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {row.classification}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-sm text-slate-600">{row.routines_display}</td>
                   </tr>
                 ))}
-                {processedSheets.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No sheets found.</td></tr>}
+                {processedSheets.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">No sheets found.</td></tr>}
               </tbody>
             </table>
           )}

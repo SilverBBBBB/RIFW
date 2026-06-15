@@ -1,5 +1,5 @@
 
-import { Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput } from './types';
+import { Routine, Report, CDMMapping, Attribute, OutputSheet, SheetDetail, UserInput, SheetCatalogItem } from './types';
 
 export const VERSIONS = ['v1.0', 'v1.1', 'v1.2', 'prod v1.2', 'v2.0', 'v2.1', 'v3.0'];
 
@@ -331,10 +331,17 @@ export const MOCK_ATTRIBUTES: Attribute[] = [
 ];
 
 export const MOCK_OUTPUT_SHEETS: OutputSheet[] = [
-  { id: 'os_ev_1', routine_id: 'rt_exist_val', sheet_name: 'Validation_Summary', order_index: 1 },
-  { id: 'os_ev_2', routine_id: 'rt_exist_val', sheet_name: 'Holdings_Rec', order_index: 2 },
-  { id: 'os_ev_3', routine_id: 'rt_exist_val', sheet_name: 'Existence and Value Testing', order_index: 3 },
-  { id: 'os_dfv_1', routine_id: 'rt_deriv_fv', sheet_name: 'Deriv_Rollforward', order_index: 4 },
+  { id: 'os_ev_1', routine_id: 'rt_exist_val', sheet_id: 'sheet_validation_summary', sheet_name: 'Validation_Summary', order_index: 1 },
+  { id: 'os_ev_2', routine_id: 'rt_exist_val', sheet_id: 'sheet_holdings_rec', sheet_name: 'Holdings_Rec', order_index: 2 },
+  { id: 'os_ev_3', routine_id: 'rt_exist_val', sheet_id: 'sheet_existence_value', sheet_name: 'Existence and Value Testing', order_index: 3 },
+  { id: 'os_dfv_1', routine_id: 'rt_deriv_fv', sheet_id: 'sheet_deriv_rollforward', sheet_name: 'Deriv_Rollforward', order_index: 4 },
+];
+
+export const MOCK_SHEET_CATALOG: SheetCatalogItem[] = [
+  { id: 'sheet_validation_summary', sheet_name: 'Validation_Summary', name_key: 'validation_summary', classification: 'Unclassified', global_order: 1 },
+  { id: 'sheet_holdings_rec', sheet_name: 'Holdings_Rec', name_key: 'holdings_rec', classification: 'Unclassified', global_order: 2 },
+  { id: 'sheet_existence_value', sheet_name: 'Existence and Value Testing', name_key: 'existence and value testing', classification: 'Unclassified', global_order: 3 },
+  { id: 'sheet_deriv_rollforward', sheet_name: 'Deriv_Rollforward', name_key: 'deriv_rollforward', classification: 'Unclassified', global_order: 4 },
 ];
 
 export const MOCK_SHEET_DETAILS: SheetDetail[] = [

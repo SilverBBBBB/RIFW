@@ -8,6 +8,15 @@ function generateId(): string {
     return randomUUID();
 }
 
+function normalizeSheetName(value: unknown): string {
+    return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeClassification(value: unknown): 'Main' | 'Helper' | 'Unclassified' {
+    if (value === 'Main' || value === 'Helper' || value === 'Unclassified') return value;
+    return 'Unclassified';
+}
+
 interface ImportPayload {
     routines: any[];
     reports: any[];
@@ -70,6 +79,17 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
     const reportKeys = new Set((reports || []).map(rep => `${String(rep['Routine_Ref_ID'] || rep.Routine_Ref_ID)}|${rep['Report Name'] || rep.report_name}`));
     const mappingKeys = new Set((mappings || []).map(map => `${String(map['Routine_Ref_ID'] || map.Routine_Ref_ID)}|${map['Report Name'] || map.report_name}|${map['Field Name'] || map.field_mapping_name}`));
     const sheetKeys = new Set((outputSheets || []).map(sheet => `${String(sheet['Routine_Ref_ID'] || sheet.Routine_Ref_ID)}|${sheet['Sheet Name'] || sheet.sheet_name}`));
+    const classificationsBySheetName = new Map<string, string>();
+    (outputSheets || []).forEach((sheet) => {
+        const sheetName = sheet['Sheet Name'] || sheet.sheet_name;
+        const nameKey = normalizeSheetName(sheetName);
+        const classification = normalizeClassification(sheet['Classification'] || sheet.classification);
+        const existing = classificationsBySheetName.get(nameKey);
+        if (existing && existing !== classification) {
+            validationErrors.push({ routine_ref_id: sheet['Routine_Ref_ID'] || 'Unknown', field: 'Classification', message: `Sheet "${sheetName}" has conflicting classifications.` });
+        }
+        if (nameKey) classificationsBySheetName.set(nameKey, classification);
+    });
     (mappings || []).forEach((map, idx) => {
         const key = `${String(map['Routine_Ref_ID'] || map.Routine_Ref_ID)}|${map['Report Name'] || map.report_name}`;
         if (!reportKeys.has(key)) validationErrors.push({ routine_ref_id: map['Routine_Ref_ID'] || 'Unknown', field: 'Report Name', message: `CDM Mappings row ${idx + 1} references a missing report.` });
@@ -129,6 +149,7 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
         const mappingIdMap = new Map<string, string>();
         // Map from Ref_ID + Sheet Name -> new output sheet UUID
         const sheetIdMap = new Map<string, string>();
+        const catalogIdByNameKey = new Map<string, string>();
 
         const importedRoutineNames: string[] = [];
 
@@ -247,16 +268,49 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
             if (!routineUuid) continue;
 
             const sheetUuid = generateId();
-            const sheetName = s['Sheet Name'] || s.sheet_name;
+            const sheetName = String(s['Sheet Name'] || s.sheet_name || '').trim();
+            const nameKey = normalizeSheetName(sheetName);
+            const classification = normalizeClassification(s['Classification'] || s.classification);
             const sheetKey = `${refId}|${sheetName}`;
             sheetIdMap.set(sheetKey, sheetUuid);
+
+            let catalogId = catalogIdByNameKey.get(nameKey);
+            if (!catalogId) {
+                const existingCatalogResult = await new sql.Request(transaction)
+                    .input('name_key', sql.NVarChar(255), nameKey)
+                    .query('SELECT TOP 1 id, classification FROM SheetCatalog WITH (UPDLOCK, HOLDLOCK) WHERE name_key=@name_key');
+                const existingCatalog = existingCatalogResult.recordset[0];
+                if (existingCatalog) {
+                    catalogId = existingCatalog.id;
+                    if (existingCatalog.classification === 'Unclassified' && classification !== 'Unclassified') {
+                        await new sql.Request(transaction)
+                            .input('id', sql.NVarChar(50), catalogId)
+                            .input('classification', sql.NVarChar(20), classification)
+                            .query('UPDATE SheetCatalog SET classification=@classification WHERE id=@id');
+                    }
+                } else {
+                    catalogId = generateId();
+                    const maxOrderResult = await new sql.Request(transaction)
+                        .query('SELECT COALESCE(MAX(global_order), 0) + 1 AS next_order FROM SheetCatalog WITH (UPDLOCK, HOLDLOCK)');
+                    const nextOrder = maxOrderResult.recordset[0]?.next_order || 1;
+                    await new sql.Request(transaction)
+                        .input('id', sql.NVarChar(50), catalogId)
+                        .input('sheet_name', sql.NVarChar(255), sheetName)
+                        .input('name_key', sql.NVarChar(255), nameKey)
+                        .input('classification', sql.NVarChar(20), classification)
+                        .input('global_order', sql.Int, nextOrder)
+                        .query('INSERT INTO SheetCatalog (id, sheet_name, name_key, classification, global_order) VALUES (@id, @sheet_name, @name_key, @classification, @global_order)');
+                }
+                catalogIdByNameKey.set(nameKey, catalogId);
+            }
 
             await new sql.Request(transaction)
                 .input('id', sql.NVarChar(50), sheetUuid)
                 .input('routine_id', sql.NVarChar(50), routineUuid)
+                .input('sheet_id', sql.NVarChar(50), catalogId)
                 .input('sheet_name', sql.NVarChar(255), sheetName)
                 .input('order_index', sql.Int, parseInt(s['Order Index'] || s.order_index) || 0)
-                .query('INSERT INTO OutputSheets (id, routine_id, sheet_name, order_index) VALUES (@id, @routine_id, @sheet_name, @order_index)');
+                .query('INSERT INTO OutputSheets (id, routine_id, sheet_id, sheet_name, order_index) VALUES (@id, @routine_id, @sheet_id, @sheet_name, @order_index)');
         }
 
         // 6. Process Sheet Details (RDEs)

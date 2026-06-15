@@ -17,6 +17,7 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             rReports,
             rMappings,
             rAttributes,
+            rSheetCatalog,
             rSheets,
             rDetails,
             rUserInputs,
@@ -28,6 +29,7 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             pool.request().query('SELECT * FROM Reports'),
             pool.request().query('SELECT * FROM CDMMappings'),
             pool.request().query('SELECT * FROM Attributes'),
+            pool.request().query('SELECT * FROM SheetCatalog'),
             pool.request().query('SELECT * FROM OutputSheets'),
             pool.request().query('SELECT * FROM SheetDetails'),
             pool.request().query('SELECT * FROM UserInputs'),
@@ -75,6 +77,10 @@ export async function getData(request: HttpRequest, context: InvocationContext):
                 reports: rReports.recordset.map((r: any) => ({ ...r, is_optional: !!r.is_optional })),
                 cdmMappings: rMappings.recordset.map((m: any) => ({ ...m, is_required: !!m.is_required })),
                 attributes: rAttributes.recordset,
+                sheetCatalog: rSheetCatalog.recordset.map((s: any) => ({
+                    ...s,
+                    row_version: Buffer.isBuffer(s.row_version) ? s.row_version.toString('base64') : undefined
+                })),
                 outputSheets: rSheets.recordset,
                 sheetDetails: rDetails.recordset,
                 userInputs: rUserInputs.recordset.map((u: any) => ({ ...u, is_mandatory: !!u.is_mandatory })),

@@ -49,11 +49,23 @@ export interface Attribute {
   attribute_name: string;
 }
 
+export type SheetClassification = 'Main' | 'Helper' | 'Unclassified';
+
+export interface SheetCatalogItem {
+  id: string;
+  sheet_name: string;
+  name_key: string;
+  classification: SheetClassification;
+  global_order: number;
+  row_version?: string;
+}
+
 export interface OutputSheet {
   id: string;
   routine_id: string;
   sheet_name: string;
   order_index: number;
+  sheet_id?: string;
 }
 
 export interface SheetDetail {
@@ -106,6 +118,11 @@ export interface AttributeViewRow extends Attribute {
 
 export interface UserInputViewRow extends UserInput {
   routine_name: string;
+}
+
+export interface SheetCatalogViewRow extends SheetCatalogItem {
+  routine_names: string[];
+  routines_display: string;
 }
 
 export interface RoutineFilters {

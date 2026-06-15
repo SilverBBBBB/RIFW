@@ -13,4 +13,12 @@ describe('release invariants', () => {
     const content = files.map(file => readFileSync(file, 'utf8')).join('\n');
     expect(content).not.toMatch(/gemini|generative-ai|aistudiocdn|cdn\.tailwindcss/i);
   });
+
+  it('ships the shared sheet catalog migration', () => {
+    const migration = readFileSync('migrations/002_shared_sheet_catalog.sql', 'utf8');
+    expect(migration).toContain('CREATE TABLE dbo.SheetCatalog');
+    expect(migration).toContain('classification');
+    expect(migration).toContain('global_order');
+    expect(migration).toContain('FK_OutputSheets_SheetCatalog');
+  });
 });
