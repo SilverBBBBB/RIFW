@@ -32,7 +32,7 @@ const UserManagement: React.FC = () => {
       try {
         setLoading(true);
         const response = await fetch('/api/GetUsers', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'X-Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
           const errorText = await response.text();
@@ -66,7 +66,7 @@ const UserManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'X-Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ userId: userToUpdate.Id, newRole })
       });
@@ -98,7 +98,7 @@ const UserManagement: React.FC = () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'X-Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(newUser)
     });
@@ -108,7 +108,7 @@ const UserManagement: React.FC = () => {
     }
     setNewUser({ username: '', password: '', role: 'User' });
     const usersResponse = await fetch('/api/GetUsers', {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { 'X-Authorization': `Bearer ${token}` }
     });
     if (usersResponse.ok) setUsers(await usersResponse.json());
   };

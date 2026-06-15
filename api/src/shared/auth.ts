@@ -17,6 +17,11 @@ interface TokenPayload {
   tokenVersion: number;
 }
 
+export const getBearerToken = (headers: Headers): string | null => {
+  const authHeader = headers.get("X-Authorization") ?? headers.get("Authorization");
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+};
+
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
@@ -57,14 +62,14 @@ export async function authenticate(
   allowedRoles: AppRole[],
   context: InvocationContext
 ): Promise<AuthenticatedUser | HttpResponseInit> {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  const token = getBearerToken(request.headers);
+  if (!token) {
     return { status: 401, body: "Authentication required." };
   }
 
   let payload: TokenPayload;
   try {
-    payload = jwt.verify(authHeader.slice(7), getJwtSecret(), {
+    payload = jwt.verify(token, getJwtSecret(), {
       issuer: "routine-info-workflow",
       audience: "routine-info-workflow"
     }) as TokenPayload;
@@ -84,19 +89,24 @@ export async function authenticate(
 
     const record = result.recordset[0];
     const role = normalizeRole(record.Role);
+    const tokenVersion = Number(record.TokenVersion);
     if (!role) {
       context.error("Authentication lookup returned an unsupported role.");
       return { status: 403, body: "Account role is invalid." };
+    }
+    if (!Number.isInteger(tokenVersion)) {
+      context.error("Authentication lookup returned an invalid token version.");
+      return { status: 500, body: "Authentication service unavailable." };
     }
 
     const user: AuthenticatedUser = {
       id: record.Id,
       username: record.Username,
       role,
-      tokenVersion: record.TokenVersion
+      tokenVersion
     };
 
-    if (payload.tokenVersion !== user.tokenVersion) {
+    if (Number(payload.tokenVersion) !== user.tokenVersion) {
       return { status: 401, body: "Session has been revoked." };
     }
     if (!allowedRoles.includes(user.role)) {

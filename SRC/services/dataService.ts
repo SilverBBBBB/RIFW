@@ -46,7 +46,7 @@ class DataService {
   private async apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
     if (!this.accessToken) throw new Error('Authentication required');
     const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${this.accessToken}`);
+    headers.set('X-Authorization', `Bearer ${this.accessToken}`);
     if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     const response = await fetch(path, { ...init, headers });
     if (response.status === 401) {
