@@ -25,7 +25,12 @@ export async function getData(request: HttpRequest, context: InvocationContext):
             rActivityLogs,
             rDefaultMappings
         ] = await Promise.all([
-            pool.request().query('SELECT * FROM Routines'),
+            pool.request().query(`SELECT r.*,
+                                         editor.Username AS last_changed_by_username,
+                                         reviewer.Username AS reviewed_by_username
+                                  FROM Routines r
+                                  LEFT JOIN Users editor ON editor.Id=r.last_changed_by_user_id
+                                  LEFT JOIN Users reviewer ON reviewer.Id=r.reviewed_by_user_id`),
             pool.request().query('SELECT * FROM Reports'),
             pool.request().query('SELECT * FROM CDMMappings'),
             pool.request().query('SELECT * FROM Attributes'),

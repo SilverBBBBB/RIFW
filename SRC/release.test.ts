@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { sortRoutinesByRecency } from './utils/routineReview';
+import { Routine } from './types';
 
 describe('release invariants', () => {
   it('ships restrictive Azure security headers', () => {
@@ -20,5 +22,27 @@ describe('release invariants', () => {
     expect(migration).toContain('classification');
     expect(migration).toContain('global_order');
     expect(migration).toContain('FK_OutputSheets_SheetCatalog');
+  });
+
+  it('ships the routine peer-review migration', () => {
+    const migration = readFileSync('migrations/003_routine_peer_review.sql', 'utf8');
+    expect(migration).toContain('review_status');
+    expect(migration).toContain('last_changed_by_user_id');
+    expect(migration).toContain('reviewed_by_user_id');
+    expect(migration).toContain("DEFAULT ('Reviewed')");
+  });
+
+  it('orders routines by most recent edit with a stable tie-breaker', () => {
+    const base: Omit<Routine, 'id' | 'routine_name' | 'last_edited_date'> = {
+      routine_display_name: '', version: 'v1', routine_group: '', routine_type: '',
+      fund_types: [], capital_structure: '', region: [], helper_routines: [], review_status: 'Reviewed'
+    };
+    const routines: Routine[] = [
+      { ...base, id: 'b', routine_name: 'Beta', last_edited_date: '2026-01-01T12:00:00Z' },
+      { ...base, id: 'a', routine_name: 'Alpha', last_edited_date: '2026-01-01T12:00:00Z' },
+      { ...base, id: 'c', routine_name: 'Current', last_edited_date: '2026-01-02T12:00:00Z' }
+    ];
+
+    expect(sortRoutinesByRecency(routines).map(routine => routine.id)).toEqual(['c', 'a', 'b']);
   });
 });

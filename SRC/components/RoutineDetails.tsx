@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { dataService } from '../services/dataService.ts';
 import { Routine } from '../types.ts';
-import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock3, ShieldCheck, XCircle } from 'lucide-react';
+import { useAuth } from '../hooks/AuthContext.tsx';
 
 interface RoutineDetailsProps {
   routineId: string;
@@ -12,6 +13,9 @@ interface RoutineDetailsProps {
 const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routineId, onBack }) => {
   const [routine, setRoutine] = useState<Routine | undefined>(undefined);
   const [activeSection, setActiveSection] = useState('summary');
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const r = dataService.getRoutineById(routineId);
@@ -19,6 +23,24 @@ const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routineId, onBack }) =>
   }, [routineId]);
 
   if (!routine) return <div>Loading...</div>;
+
+  const isPending = routine.review_status === 'Pending';
+  const isLatestEditor = user?.id != null && user.id === routine.last_changed_by_user_id;
+  const canReview = isPending && user?.id != null && !isLatestEditor;
+
+  const handleReview = async () => {
+    if (!canReview) return;
+    setIsReviewing(true);
+    setReviewError(null);
+    try {
+      const updated = await dataService.reviewRoutine(routine.id);
+      setRoutine({ ...updated });
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'Failed to review routine.');
+    } finally {
+      setIsReviewing(false);
+    }
+  };
 
   const reports = dataService.getReportsByRoutineId(routine.id);
   // Get mappings for these reports
@@ -45,10 +67,10 @@ const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routineId, onBack }) =>
                    )}
                    <div className="text-slate-400 flex gap-4 text-sm">
                       <span>Type: {routine.routine_type}</span>
-                      <span>•</span>
+                      <span>|</span>
                       <span>Region: {routine.region}</span>
-                      <span>•</span>
-                      <span>Last Edited: {new Date(routine.last_edited_date).toLocaleDateString()}</span>
+                      <span>|</span>
+                      <span>Last Edited: {new Date(routine.last_edited_date).toLocaleString()}</span>
                    </div>
                 </div>
                 <div className="text-right">
@@ -56,6 +78,42 @@ const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routineId, onBack }) =>
                     <div className="font-medium">{routine.capital_structure}</div>
                 </div>
              </div>
+          </div>
+
+          <div className={`border-b p-5 ${isPending ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                {isPending
+                  ? <Clock3 className="mt-0.5 text-amber-700" size={22} />
+                  : <ShieldCheck className="mt-0.5 text-emerald-700" size={22} />}
+                <div>
+                  <div className={`font-semibold ${isPending ? 'text-amber-900' : 'text-emerald-900'}`}>
+                    {isPending ? 'Review Pending' : 'Reviewed'}
+                  </div>
+                  <div className={`text-sm ${isPending ? 'text-amber-800' : 'text-emerald-800'}`}>
+                    {isPending
+                      ? `Last changed by ${routine.last_changed_by_username || 'an unknown user'} on ${new Date(routine.last_edited_date).toLocaleString()}.`
+                      : routine.reviewed_at
+                        ? `Reviewed by ${routine.reviewed_by_username || 'another user'} on ${new Date(routine.reviewed_at).toLocaleString()}.`
+                        : 'This routine predates the peer-review workflow and is treated as reviewed.'}
+                  </div>
+                  {isLatestEditor && isPending && (
+                    <div className="mt-1 text-sm font-medium text-amber-900">Another user must review your change.</div>
+                  )}
+                  {reviewError && <div role="alert" className="mt-2 text-sm font-medium text-red-700">{reviewError}</div>}
+                </div>
+              </div>
+              {isPending && (
+                <button
+                  onClick={handleReview}
+                  disabled={!canReview || isReviewing}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={isLatestEditor ? 'Another user must review your change' : 'Mark this routine as reviewed'}
+                >
+                  <ShieldCheck size={17} /> {isReviewing ? 'Marking Reviewed...' : 'Mark Reviewed'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Navigation */}

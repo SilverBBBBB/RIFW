@@ -266,10 +266,7 @@ const RoutineForm: React.FC<RoutineFormProps> = ({ mode, routineId, onCancel, on
     setValidationErrors([]);
     setHighlightErrorFields([]);
 
-    const finalRoutine = {
-      ...routine,
-      last_edited_date: new Date().toISOString()
-    } as Routine;
+    const finalRoutine = { ...routine } as Routine;
     const finalSheets = sheets.map(sheet => {
       if (sheet.sheet_id && sheet.pending_classification) {
         dataService.updateSheetClassification(sheet.sheet_id, sheet.pending_classification);

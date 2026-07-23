@@ -7,6 +7,8 @@ export interface User {
   role: UserRole;
 }
 
+export type RoutineReviewStatus = 'Pending' | 'Reviewed';
+
 export interface Routine {
   id: string;
   routine_name: string;
@@ -25,6 +27,12 @@ export interface Routine {
   is_active?: boolean;
   business_owner?: string;
   row_version?: string;
+  review_status: RoutineReviewStatus;
+  last_changed_by_user_id?: number | null;
+  last_changed_by_username?: string | null;
+  reviewed_by_user_id?: number | null;
+  reviewed_by_username?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface Report {

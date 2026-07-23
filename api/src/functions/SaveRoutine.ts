@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { authenticate, isAuthResponse } from "../shared/auth";
+import { hasMeaningfulRoutineChanges } from "../shared/routineReview";
 import { getPool, sql } from "../shared/sql";
 import { compareRoutines } from "./CompareRoutine";
 
@@ -128,12 +129,19 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
       delta = compareRoutines(existingData, body);
     }
 
+    const hasMeaningfulChanges = !existing || hasMeaningfulRoutineChanges(delta);
+    const lastEditedDate = hasMeaningfulChanges ? new Date() : existing.last_edited_date;
+    const reviewStatus = hasMeaningfulChanges ? "Pending" : existing.review_status || "Reviewed";
+    const lastChangedByUserId = hasMeaningfulChanges ? auth.id : existing.last_changed_by_user_id || null;
+    const reviewedByUserId = hasMeaningfulChanges ? null : existing.reviewed_by_user_id || null;
+    const reviewedAt = hasMeaningfulChanges ? null : existing.reviewed_at || null;
+
     const routineRequest = new sql.Request(transaction)
       .input("id", sql.NVarChar(50), routine.id)
       .input("routine_name", sql.NVarChar(255), routine.routine_name.trim())
       .input("routine_display_name", sql.NVarChar(255), routine.routine_display_name.trim())
       .input("version", sql.NVarChar(50), routine.version || "")
-      .input("last_edited_date", sql.DateTime2, new Date())
+      .input("last_edited_date", sql.DateTime2, lastEditedDate)
       .input("routine_group", sql.NVarChar(100), routine.routine_group.trim())
       .input("routine_type", sql.NVarChar(100), routine.routine_type.trim())
       .input("fund_types", sql.NVarChar(sql.MAX), JSON.stringify(routine.fund_types || []))
@@ -141,7 +149,11 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
       .input("region", sql.NVarChar(sql.MAX), JSON.stringify(routine.region || []))
       .input("helper_routines", sql.NVarChar(sql.MAX), JSON.stringify(routine.helper_routines || []))
       .input("to_show", sql.NVarChar(10), routine.to_show || "Yes")
-      .input("display_in_dropdown", sql.NVarChar(10), routine.display_in_dropdown || "Yes");
+      .input("display_in_dropdown", sql.NVarChar(10), routine.display_in_dropdown || "Yes")
+      .input("review_status", sql.NVarChar(20), reviewStatus)
+      .input("last_changed_by_user_id", sql.Int, lastChangedByUserId)
+      .input("reviewed_by_user_id", sql.Int, reviewedByUserId)
+      .input("reviewed_at", sql.DateTime2, reviewedAt);
 
     if (existing) {
       await routineRequest.query(`
@@ -149,7 +161,9 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
           version=@version, last_edited_date=@last_edited_date, routine_group=@routine_group,
           routine_type=@routine_type, fund_types=@fund_types, capital_structure=@capital_structure,
           region=@region, helper_routines=@helper_routines, to_show=@to_show,
-          display_in_dropdown=@display_in_dropdown, is_active=1
+          display_in_dropdown=@display_in_dropdown, is_active=1,
+          review_status=@review_status, last_changed_by_user_id=@last_changed_by_user_id,
+          reviewed_by_user_id=@reviewed_by_user_id, reviewed_at=@reviewed_at
         WHERE id=@id`);
 
       await new sql.Request(transaction).input("id", sql.NVarChar(50), routine.id).query(`
@@ -162,9 +176,9 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
     } else {
       await routineRequest.query(`
         INSERT INTO Routines
-          (id,routine_name,routine_display_name,version,last_edited_date,routine_group,routine_type,fund_types,capital_structure,region,helper_routines,to_show,display_in_dropdown,is_active)
+          (id,routine_name,routine_display_name,version,last_edited_date,routine_group,routine_type,fund_types,capital_structure,region,helper_routines,to_show,display_in_dropdown,is_active,review_status,last_changed_by_user_id,reviewed_by_user_id,reviewed_at)
         VALUES
-          (@id,@routine_name,@routine_display_name,@version,@last_edited_date,@routine_group,@routine_type,@fund_types,@capital_structure,@region,@helper_routines,@to_show,@display_in_dropdown,1)`);
+          (@id,@routine_name,@routine_display_name,@version,@last_edited_date,@routine_group,@routine_type,@fund_types,@capital_structure,@region,@helper_routines,@to_show,@display_in_dropdown,1,@review_status,@last_changed_by_user_id,@reviewed_by_user_id,@reviewed_at)`);
     }
 
     for (const item of reports) {
@@ -280,22 +294,37 @@ export async function saveRoutine(request: HttpRequest, context: InvocationConte
         .query("INSERT INTO UserInputs (id,routine_id,user_input_name,input_location,textbox_type,validations,min_value,max_value,is_mandatory) VALUES (@id,@routine_id,@user_input_name,@input_location,@textbox_type,@validations,@min_value,@max_value,@is_mandatory)");
     }
 
-    await new sql.Request(transaction)
-      .input("routine_id", sql.NVarChar(50), routine.id).input("routine_name", sql.NVarChar(255), routine.routine_name)
-      .input("changed_by", sql.NVarChar(255), auth.username).input("change_type", sql.NVarChar(50), changeType)
-      .input("change_details", sql.NVarChar(sql.MAX), JSON.stringify(delta))
-      .query("INSERT INTO ActivityLog (routine_id,routine_name,changed_by,change_type,change_details) VALUES (@routine_id,@routine_name,@changed_by,@change_type,@change_details)");
+    if (hasMeaningfulChanges) {
+      await new sql.Request(transaction)
+        .input("routine_id", sql.NVarChar(50), routine.id).input("routine_name", sql.NVarChar(255), routine.routine_name)
+        .input("changed_by", sql.NVarChar(255), auth.username).input("change_type", sql.NVarChar(50), changeType)
+        .input("change_details", sql.NVarChar(sql.MAX), JSON.stringify(delta))
+        .query("INSERT INTO ActivityLog (routine_id,routine_name,changed_by,change_type,change_details) VALUES (@routine_id,@routine_name,@changed_by,@change_type,@change_details)");
+    }
 
     const versionResult = await new sql.Request(transaction)
       .input("id", sql.NVarChar(50), routine.id)
-      .query("SELECT row_version FROM Routines WHERE id=@id");
+      .query(`SELECT r.row_version, r.last_edited_date, r.review_status,
+                     r.last_changed_by_user_id, editor.Username AS last_changed_by_username,
+                     r.reviewed_by_user_id, reviewer.Username AS reviewed_by_username,
+                     r.reviewed_at
+              FROM Routines r
+              LEFT JOIN Users editor ON editor.Id=r.last_changed_by_user_id
+              LEFT JOIN Users reviewer ON reviewer.Id=r.reviewed_by_user_id
+              WHERE r.id=@id`);
+    const savedRoutine = versionResult.recordset[0];
     await transaction.commit();
 
     return {
       status: 200,
       jsonBody: {
         success: true,
-        row_version: versionResult.recordset[0].row_version.toString("base64")
+        changed: hasMeaningfulChanges,
+        row_version: savedRoutine.row_version.toString("base64"),
+        routine: {
+          ...savedRoutine,
+          row_version: savedRoutine.row_version.toString("base64")
+        }
       }
     };
   } catch (error) {

@@ -191,10 +191,12 @@ export async function importRoutines(request: HttpRequest, context: InvocationCo
                 .input('to_show', sql.NVarChar(10), toShow)
                 .input('display_in_dropdown', sql.NVarChar(10), displayInDropdown)
                 .input('is_active', sql.Bit, 1)
+                .input('review_status', sql.NVarChar(20), 'Pending')
+                .input('last_changed_by_user_id', sql.Int, auth.id)
                 .query(`INSERT INTO Routines 
-                    (id, routine_name, routine_display_name, version, last_edited_date, routine_group, routine_type, fund_types, capital_structure, region, helper_routines, to_show, display_in_dropdown, is_active)
+                    (id, routine_name, routine_display_name, version, last_edited_date, routine_group, routine_type, fund_types, capital_structure, region, helper_routines, to_show, display_in_dropdown, is_active, review_status, last_changed_by_user_id)
                     VALUES 
-                    (@id, @routine_name, @routine_display_name, @version, @last_edited_date, @routine_group, @routine_type, @fund_types, @capital_structure, @region, @helper_routines, @to_show, @display_in_dropdown, @is_active)`);
+                    (@id, @routine_name, @routine_display_name, @version, @last_edited_date, @routine_group, @routine_type, @fund_types, @capital_structure, @region, @helper_routines, @to_show, @display_in_dropdown, @is_active, @review_status, @last_changed_by_user_id)`);
         }
 
         // 2. Process Reports

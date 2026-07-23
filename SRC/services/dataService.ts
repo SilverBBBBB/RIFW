@@ -9,6 +9,12 @@ import {
   VERSIONS, ROUTINE_TYPES, FUND_TYPES, REGIONS, CAPITAL_STRUCTURES, DATA_TYPES, PREDEFINED_REPORTS, HELPER_ROUTINES_LIST
 } from '../constants';
 
+type RoutineServerState = Pick<
+  Routine,
+  'row_version' | 'last_edited_date' | 'review_status' | 'last_changed_by_user_id' |
+  'last_changed_by_username' | 'reviewed_by_user_id' | 'reviewed_by_username' | 'reviewed_at'
+>;
+
 class DataService {
   private routines: Routine[] = [];
   private reports: Report[] = [];
@@ -68,7 +74,7 @@ class DataService {
 
       const data = await response.json();
 
-      this.routines = data.routines;
+      this.routines = (data.routines || []).map((routine: Routine) => this.normalizeRoutine(routine));
       this.reports = data.reports;
       this.cdmMappings = data.cdmMappings;
       this.attributes = data.attributes;
@@ -109,7 +115,7 @@ class DataService {
     if (stored) {
       try {
         const data = JSON.parse(stored);
-        this.routines = data.routines || [];
+        this.routines = (data.routines || []).map((routine: Routine) => this.normalizeRoutine(routine));
         this.reports = data.reports || [];
         this.cdmMappings = data.cdmMappings || [];
         this.attributes = data.attributes || [];
@@ -132,7 +138,7 @@ class DataService {
   }
 
   private loadMockData() {
-    this.routines = [...MOCK_ROUTINES];
+    this.routines = MOCK_ROUTINES.map(routine => this.normalizeRoutine(routine));
     this.reports = [...MOCK_REPORTS];
     this.cdmMappings = [...MOCK_CDM_MAPPINGS];
     this.attributes = [...MOCK_ATTRIBUTES];
@@ -176,7 +182,20 @@ class DataService {
     localStorage.setItem('amap_data', JSON.stringify(data));
   }
 
-  private async saveToApi(routineId: string): Promise<string | undefined> {
+  private normalizeRoutine(routine: Routine): Routine {
+    return {
+      ...routine,
+      review_status: routine.review_status || 'Reviewed'
+    };
+  }
+
+  private applyRoutineServerState(routineId: string, state?: Partial<RoutineServerState>): void {
+    if (!state) return;
+    const routine = this.routines.find(item => item.id === routineId);
+    if (routine) Object.assign(routine, state);
+  }
+
+  private async saveToApi(routineId: string): Promise<RoutineServerState | undefined> {
     if (!this.useApi) {
       throw new Error('API connection required');
     }
@@ -204,7 +223,7 @@ class DataService {
     });
     if (!response.ok) throw new Error(await response.text() || 'API save failed');
     const result = await response.json();
-    return result.row_version;
+    return result.routine || (result.row_version ? { row_version: result.row_version } : undefined);
   }
 
   // --- CONFIGURATION ---
@@ -522,8 +541,7 @@ class DataService {
       userInputs: structuredClone(this.userInputs)
     };
     const existingIndex = this.routines.findIndex(r => r.id === routine.id);
-    const now = new Date().toISOString();
-    const updatedRoutine = { ...routine, last_edited_date: now };
+    const updatedRoutine = this.normalizeRoutine({ ...routine });
 
     if (existingIndex >= 0) {
       this.routines[existingIndex] = updatedRoutine;
@@ -555,9 +573,8 @@ class DataService {
     this.userInputs.push(...userInputs);
 
     try {
-      const rowVersion = await this.saveToApi(routine.id);
-      const saved = this.routines.find(item => item.id === routine.id);
-      if (saved && rowVersion) saved.row_version = rowVersion;
+      const serverState = await this.saveToApi(routine.id);
+      this.applyRoutineServerState(routine.id, serverState);
     } catch (error) {
       this.routines = snapshot.routines;
       this.reports = snapshot.reports;
@@ -602,9 +619,8 @@ class DataService {
       const sheet = this.outputSheets.find(s => s.id === this.sheetDetails[idx].output_sheet_id);
       if (sheet) {
         try {
-          const rowVersion = await this.saveToApi(sheet.routine_id);
-          const routine = this.routines.find(item => item.id === sheet.routine_id);
-          if (routine && rowVersion) routine.row_version = rowVersion;
+          const serverState = await this.saveToApi(sheet.routine_id);
+          this.applyRoutineServerState(sheet.routine_id, serverState);
         } catch (error) {
           this.sheetDetails[idx] = previousDetail;
           throw error;
@@ -732,8 +748,8 @@ class DataService {
     this.userInputs.push(...newUserInputs);
 
     try {
-      const rowVersion = await this.saveToApi(newRoutine.id);
-      if (rowVersion) newRoutine.row_version = rowVersion;
+      const serverState = await this.saveToApi(newRoutine.id);
+      this.applyRoutineServerState(newRoutine.id, serverState);
     } catch (error) {
       this.routines = this.routines.filter(item => item.id !== newRoutineId);
       this.reports = this.reports.filter(item => item.routine_id !== newRoutineId);
@@ -749,6 +765,21 @@ class DataService {
     }
 
     return newRoutine;
+  }
+
+  async reviewRoutine(id: string): Promise<Routine> {
+    const routine = this.routines.find(item => item.id === id);
+    if (!routine?.row_version) throw new Error('Routine version is missing. Reload and retry.');
+
+    const response = await this.apiFetch('/api/routine/review', {
+      method: 'POST',
+      body: JSON.stringify({ id, row_version: routine.row_version })
+    });
+    if (!response.ok) throw new Error(await response.text() || 'Failed to review routine.');
+
+    const result = await response.json();
+    this.applyRoutineServerState(id, result.routine);
+    return this.routines.find(item => item.id === id)!;
   }
 
   // --- BULK IMPORT ---
@@ -860,7 +891,7 @@ class DataService {
         usedSheetIds.add(catalog.id);
       }
       return {
-        ...sheet,
+        id: sheet.id,
         routine_id: routineId,
         sheet_id: catalog?.id || sheet.sheet_id,
         sheet_name: catalog?.sheet_name || sheet.sheet_name,

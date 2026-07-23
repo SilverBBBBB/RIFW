@@ -12,6 +12,7 @@ import {
   MousePointerClick, Download, History
 } from 'lucide-react';
 import { useAuth } from '../hooks/AuthContext';
+import { routineReviewLabel, sortRoutinesByRecency } from '../utils/routineReview';
 
 interface DashboardProps {
   onEdit: (id: string) => void;
@@ -166,6 +167,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
 
   const getSortableValue = (item: any, key: string): string | number => {
     const val = item[key];
+    if (key === 'last_edited_date') {
+      const timestamp = new Date(val).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    }
     if (Array.isArray(val)) return val.join(', ').toLowerCase();
     if (typeof val === 'boolean') return val ? 'yes' : 'no';
     if (typeof val === 'string') return val.toLowerCase();
@@ -197,10 +202,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
         filterValueMatches(r.display_in_dropdown, columnFilters['display_in_dropdown']) &&
         filterValueMatches(r.fund_types.join(', '), columnFilters['fund_types']) &&
         filterValueMatches(r.version, columnFilters['version']) &&
-        filterValueMatches(r.region, columnFilters['region'])
+        filterValueMatches(r.region, columnFilters['region']) &&
+        filterValueMatches(new Date(r.last_edited_date).toLocaleString(), columnFilters['last_edited_date']) &&
+        filterValueMatches(routineReviewLabel(r), columnFilters['review_status'])
       );
     });
-    return applySort(filtered);
+    if (sortConfig) return applySort(filtered);
+    return sortRoutinesByRecency(filtered);
   }, [routines, columnFilters, sortConfig]);
 
   const processedReports = useMemo(() => {
@@ -609,12 +617,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   <ColumnHeader label="Group" columnKey="routine_group" minWidth="200px" />
                   <ColumnHeader label="Type" columnKey="routine_type" minWidth="150px" />
                   <ColumnHeader label="Region" columnKey="region" minWidth="120px" />
+                  <ColumnHeader label="Last Edited" columnKey="last_edited_date" minWidth="190px" />
+                  <ColumnHeader label="Review" columnKey="review_status" minWidth="150px" />
                   <th className="p-3 border-b border-slate-300 bg-slate-100 text-xs font-bold text-slate-700 uppercase text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {processedRoutines.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50 group">
+                  <tr
+                    key={row.id}
+                    className={`group transition-colors ${row.review_status === 'Pending' ? 'bg-amber-50 hover:bg-amber-100/80' : 'hover:bg-slate-50'}`}
+                  >
                     <td className="p-3 text-sm text-slate-500 font-mono">{row.id}</td>
                     <td className="p-3 text-sm font-medium text-slate-800">{row.routine_name}</td>
                     <td className="p-3 text-sm text-slate-600">{row.routine_display_name}</td>
@@ -622,6 +635,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                     <td className="p-3 text-sm text-slate-600">{row.routine_group}</td>
                     <td className="p-3 text-sm text-slate-600">{row.routine_type}</td>
                     <td className="p-3 text-sm text-slate-600">{row.region}</td>
+                    <td className="p-3 text-sm text-slate-600 whitespace-nowrap">{new Date(row.last_edited_date).toLocaleString()}</td>
+                    <td className="p-3 text-sm">
+                      {row.review_status === 'Pending' ? (
+                        <button
+                          onClick={() => onViewDetails(row.id)}
+                          className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+                          title="Open routine details to complete review"
+                        >
+                          Review Pending
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          Reviewed
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3 text-sm text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => onViewDetails(row.id)} title="View Details" className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"><Eye size={16} /></button>
@@ -631,7 +660,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onEdit, onCreate, onViewDetails, 
                   </tr>
                 ))}
                 {processedRoutines.length === 0 && (
-                  <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">No routines found matching filters.</td></tr>
+                  <tr><td colSpan={10} className="p-8 text-center text-slate-400 italic">No routines found matching filters.</td></tr>
                 )}
               </tbody>
             </table>
