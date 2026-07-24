@@ -30,6 +30,12 @@ describe('release invariants', () => {
     expect(migration).toContain('last_changed_by_user_id');
     expect(migration).toContain('reviewed_by_user_id');
     expect(migration).toContain("DEFAULT ('Reviewed')");
+    expect(migration).toContain('EXEC sp_executesql');
+  });
+
+  it('fails deployment when sqlcmd reports a migration error', () => {
+    const workflow = readFileSync('.github/workflows/azure-static-web-apps-white-sky-07b80490f.yml', 'utf8');
+    expect(workflow).toContain("printf ':ON ERROR EXIT\\n' > \"$bundle\"");
   });
 
   it('orders routines by most recent edit with a stable tie-breaker', () => {

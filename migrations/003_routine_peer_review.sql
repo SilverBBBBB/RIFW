@@ -28,8 +28,9 @@ IF NOT EXISTS (
       AND parent_object_id = OBJECT_ID('dbo.Routines')
 )
 BEGIN
-    ALTER TABLE dbo.Routines ADD CONSTRAINT CK_Routines_ReviewStatus
-        CHECK (review_status IN ('Pending', 'Reviewed'));
+    EXEC sp_executesql N'
+        ALTER TABLE dbo.Routines ADD CONSTRAINT CK_Routines_ReviewStatus
+            CHECK (review_status IN (''Pending'', ''Reviewed''));';
 END;
 
 IF NOT EXISTS (
@@ -38,8 +39,9 @@ IF NOT EXISTS (
       AND parent_object_id = OBJECT_ID('dbo.Routines')
 )
 BEGIN
-    ALTER TABLE dbo.Routines ADD CONSTRAINT FK_Routines_LastChangedByUser
-        FOREIGN KEY (last_changed_by_user_id) REFERENCES dbo.Users(Id);
+    EXEC sp_executesql N'
+        ALTER TABLE dbo.Routines ADD CONSTRAINT FK_Routines_LastChangedByUser
+            FOREIGN KEY (last_changed_by_user_id) REFERENCES dbo.Users(Id);';
 END;
 
 IF NOT EXISTS (
@@ -48,8 +50,9 @@ IF NOT EXISTS (
       AND parent_object_id = OBJECT_ID('dbo.Routines')
 )
 BEGIN
-    ALTER TABLE dbo.Routines ADD CONSTRAINT FK_Routines_ReviewedByUser
-        FOREIGN KEY (reviewed_by_user_id) REFERENCES dbo.Users(Id);
+    EXEC sp_executesql N'
+        ALTER TABLE dbo.Routines ADD CONSTRAINT FK_Routines_ReviewedByUser
+            FOREIGN KEY (reviewed_by_user_id) REFERENCES dbo.Users(Id);';
 END;
 
 IF NOT EXISTS (
@@ -58,8 +61,9 @@ IF NOT EXISTS (
       AND object_id = OBJECT_ID('dbo.Routines')
 )
 BEGIN
-    CREATE INDEX IX_Routines_ReviewStatus_LastEdited
-        ON dbo.Routines(review_status, last_edited_date DESC);
+    EXEC sp_executesql N'
+        CREATE INDEX IX_Routines_ReviewStatus_LastEdited
+            ON dbo.Routines(review_status, last_edited_date DESC);';
 END;
 
 COMMIT TRANSACTION;
